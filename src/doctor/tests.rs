@@ -4,7 +4,7 @@ use super::diagnose_path;
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let bin = directory.path().join("bin");
     std::fs::create_dir(&bin).expect("create bin");
     let file_path = directory.path().join("file");
@@ -36,6 +36,13 @@ fn diagnose_path_detects_core_diagnostics() {
             IssueKind::Empty
         ]
     );
+}
+
+fn relative_tempdir() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir")
 }
 
 #[test]

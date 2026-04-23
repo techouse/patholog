@@ -4,7 +4,7 @@ use super::clean_path;
 
 #[test]
 fn clean_path_removes_empty_entries_and_later_duplicates() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let first = directory.path().join("first");
     let second = directory.path().join("second");
     std::fs::create_dir(&first).expect("create first");
@@ -27,7 +27,7 @@ fn clean_path_removes_empty_entries_and_later_duplicates() {
 
 #[test]
 fn clean_path_keeps_missing_and_non_directory_entries() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let missing = directory.path().join("missing");
     let file_path = directory.path().join("file");
     std::fs::write(&file_path, "not a directory").expect("write file");
@@ -40,4 +40,11 @@ fn clean_path_keeps_missing_and_non_directory_entries() {
         ),
         format!("{}:{}", missing.display(), file_path.display())
     );
+}
+
+fn relative_tempdir() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir")
 }

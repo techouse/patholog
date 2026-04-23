@@ -6,7 +6,7 @@ use super::resolve_command;
 
 #[test]
 fn posix_command_found_once() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let bin = directory.path().join("bin");
     make_executable(&bin.join("tool"));
 
@@ -27,7 +27,7 @@ fn posix_command_found_once() {
 
 #[test]
 fn posix_command_found_multiple_times_marks_first_winner() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let first = directory.path().join("first");
     let second = directory.path().join("second");
     make_executable(&first.join("tool"));
@@ -54,7 +54,7 @@ fn posix_command_found_multiple_times_marks_first_winner() {
 
 #[test]
 fn command_not_found_records_searched_directories() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let bin = directory.path().join("bin");
     std::fs::create_dir(&bin).expect("create bin");
 
@@ -165,7 +165,7 @@ fn windows_executable_lookup_is_case_insensitive() {
 
 #[test]
 fn related_name_hint_is_not_a_match() {
-    let directory = tempfile::tempdir().expect("create tempdir");
+    let directory = relative_tempdir();
     let bin = directory.path().join("bin");
     make_executable(&bin.join("python3"));
 
@@ -209,3 +209,10 @@ fn make_permissions_executable(path: &Path) {
 
 #[cfg(not(unix))]
 fn make_permissions_executable(_path: &Path) {}
+
+fn relative_tempdir() -> tempfile::TempDir {
+    tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir")
+}
