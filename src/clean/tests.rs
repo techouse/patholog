@@ -4,9 +4,9 @@ use super::clean_path;
 
 #[test]
 fn clean_path_removes_empty_entries_and_later_duplicates() {
-    let directory = relative_tempdir();
-    let first = directory.path().join("first");
-    let second = directory.path().join("second");
+    let (_directory, root) = relative_tempdir();
+    let first = root.join("first");
+    let second = root.join("second");
     std::fs::create_dir(&first).expect("create first");
     std::fs::create_dir(&second).expect("create second");
 
@@ -27,9 +27,9 @@ fn clean_path_removes_empty_entries_and_later_duplicates() {
 
 #[test]
 fn clean_path_keeps_missing_and_non_directory_entries() {
-    let directory = relative_tempdir();
-    let missing = directory.path().join("missing");
-    let file_path = directory.path().join("file");
+    let (_directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+    let file_path = root.join("file");
     std::fs::write(&file_path, "not a directory").expect("write file");
 
     assert_eq!(
@@ -42,9 +42,15 @@ fn clean_path_keeps_missing_and_non_directory_entries() {
     );
 }
 
-fn relative_tempdir() -> tempfile::TempDir {
-    tempfile::Builder::new()
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
         .prefix(".patholog-test-")
         .tempdir_in(".")
-        .expect("create relative tempdir")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
 }

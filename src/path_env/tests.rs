@@ -4,9 +4,9 @@ use super::parse_path;
 
 #[test]
 fn posix_path_parsing_preserves_order() {
-    let directory = relative_tempdir();
-    let first = directory.path().join("first");
-    let second = directory.path().join("second");
+    let (_directory, root) = relative_tempdir();
+    let first = root.join("first");
+    let second = root.join("second");
     std::fs::create_dir(&first).expect("create first");
     std::fs::create_dir(&second).expect("create second");
 
@@ -43,10 +43,10 @@ fn windows_path_parsing_uses_semicolon_and_case_insensitive_keys() {
 
 #[test]
 fn empty_missing_and_non_directory_entries_are_classified() {
-    let directory = relative_tempdir();
-    let file_path = directory.path().join("file");
+    let (_directory, root) = relative_tempdir();
+    let file_path = root.join("file");
     std::fs::write(&file_path, "not a dir").expect("write file");
-    let missing = directory.path().join("missing");
+    let missing = root.join("missing");
 
     let entries = parse_path(
         &format!(":{}:{}", missing.display(), file_path.display()),
@@ -60,9 +60,15 @@ fn empty_missing_and_non_directory_entries_are_classified() {
     assert!(!entries[2].is_dir);
 }
 
-fn relative_tempdir() -> tempfile::TempDir {
-    tempfile::Builder::new()
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
         .prefix(".patholog-test-")
         .tempdir_in(".")
-        .expect("create relative tempdir")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
 }

@@ -4,12 +4,12 @@ use super::diagnose_path;
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
-    let directory = relative_tempdir();
-    let bin = directory.path().join("bin");
+    let (_directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     std::fs::create_dir(&bin).expect("create bin");
-    let file_path = directory.path().join("file");
+    let file_path = root.join("file");
     std::fs::write(&file_path, "not a directory").expect("write file");
-    let missing = directory.path().join("missing");
+    let missing = root.join("missing");
 
     let report = diagnose_path(
         &format!(
@@ -38,11 +38,17 @@ fn diagnose_path_detects_core_diagnostics() {
     );
 }
 
-fn relative_tempdir() -> tempfile::TempDir {
-    tempfile::Builder::new()
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
         .prefix(".patholog-test-")
         .tempdir_in(".")
-        .expect("create relative tempdir")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
 }
 
 #[test]

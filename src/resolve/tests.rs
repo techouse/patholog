@@ -6,8 +6,8 @@ use super::resolve_command;
 
 #[test]
 fn posix_command_found_once() {
-    let directory = relative_tempdir();
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     make_executable(&bin.join("tool"));
 
     let report = resolve_command(
@@ -27,9 +27,9 @@ fn posix_command_found_once() {
 
 #[test]
 fn posix_command_found_multiple_times_marks_first_winner() {
-    let directory = relative_tempdir();
-    let first = directory.path().join("first");
-    let second = directory.path().join("second");
+    let (directory, root) = relative_tempdir();
+    let first = root.join("first");
+    let second = root.join("second");
     make_executable(&first.join("tool"));
     make_executable(&second.join("tool"));
 
@@ -54,8 +54,8 @@ fn posix_command_found_multiple_times_marks_first_winner() {
 
 #[test]
 fn command_not_found_records_searched_directories() {
-    let directory = relative_tempdir();
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     std::fs::create_dir(&bin).expect("create bin");
 
     let report = resolve_command(
@@ -165,8 +165,8 @@ fn windows_executable_lookup_is_case_insensitive() {
 
 #[test]
 fn related_name_hint_is_not_a_match() {
-    let directory = relative_tempdir();
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     make_executable(&bin.join("python3"));
 
     let report = resolve_command(
@@ -210,9 +210,15 @@ fn make_permissions_executable(path: &Path) {
 #[cfg(not(unix))]
 fn make_permissions_executable(_path: &Path) {}
 
-fn relative_tempdir() -> tempfile::TempDir {
-    tempfile::Builder::new()
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
         .prefix(".patholog-test-")
         .tempdir_in(".")
-        .expect("create relative tempdir")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
 }
