@@ -1,0 +1,3 @@
+# Golden fixtures encode exact byte streams. Keep checkout filters from
+# changing their reviewable sidecars or expected text files on Windows.
+tests/fixtures/golden/** text eol=lf
