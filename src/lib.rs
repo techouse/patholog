@@ -71,4 +71,8 @@ pub mod fuzzing {
     pub fn doctor_json(report: &DoctorReport) -> Result<String, serde_json::Error> {
         json::dumps_json(&json::doctor_to_json(report))
     }
+
+    #[cfg(test)]
+    #[path = "tests.rs"]
+    mod tests;
 }

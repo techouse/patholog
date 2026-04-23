@@ -65,6 +65,19 @@ fn ordering_diagnostic_warns_for_usr_bin_before_homebrew() {
 }
 
 #[test]
+fn ordering_diagnostic_warns_for_system_dir_before_user_tool_dir() {
+    let report = diagnose_path("/bin:/Users/me/.cargo/bin", PlatformMode::Posix, None);
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/bin appears before /Users/me/.cargo/bin")
+    );
+}
+
+#[test]
 fn windows_duplicate_detection_is_case_insensitive() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let tools = directory.path().join("Tools");

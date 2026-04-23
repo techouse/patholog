@@ -21,6 +21,28 @@ fn windows_comparison_keys_normalize_and_case_fold() {
 }
 
 #[test]
+fn posix_comparison_keys_collapse_dot_and_dotdot_conservatively() {
+    let rules = resolve_platform_rules(PlatformMode::Posix, None);
+
+    assert_eq!(comparison_key("", &rules), "");
+    assert_eq!(comparison_key("/a/../", &rules), "/");
+    assert_eq!(comparison_key("./", &rules), ".");
+    assert_eq!(comparison_key("a/../..", &rules), "..");
+}
+
+#[test]
+fn windows_comparison_keys_cover_prefix_and_root_variants() {
+    let rules = resolve_platform_rules(PlatformMode::Windows, None);
+
+    assert_eq!(comparison_key(r"C:\", &rules), r"c:\");
+    assert_eq!(comparison_key(r"C:foo\..", &rules), "c:");
+    assert_eq!(comparison_key("/", &rules), r"\");
+    assert_eq!(comparison_key(r"foo\..", &rules), ".");
+    assert_eq!(comparison_key(r"..\foo", &rules), r"..\foo");
+    assert_eq!(comparison_key("c", &rules), "c");
+}
+
+#[test]
 fn first_unique_entries_removes_empty_and_later_duplicates() {
     let entries = vec![
         entry(1, "a", "a", false),

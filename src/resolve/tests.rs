@@ -1,7 +1,9 @@
 use std::path::Path;
 
 use crate::model::{PlatformMode, ResolutionReport};
+use crate::platform::resolve_platform_rules;
 
+use super::names::candidate_names;
 use super::resolve_command;
 
 #[test]
@@ -68,6 +70,70 @@ fn command_not_found_records_searched_directories() {
     );
 
     assert_eq!(report.searched_directories, [bin.display().to_string()]);
+}
+
+#[test]
+fn empty_posix_entry_searches_current_directory() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    make_executable(&directory.path().join("tool"));
+
+    let report = resolve_command(
+        "",
+        "tool",
+        PlatformMode::Posix,
+        None,
+        directory.path(),
+        true,
+    );
+
+    assert_eq!(
+        report.searched_directories,
+        ["<empty entry: current directory>"]
+    );
+    assert_eq!(
+        candidate_paths(&report),
+        [directory.path().join("tool").display().to_string()]
+    );
+}
+
+#[test]
+fn non_directory_path_entries_are_not_searched() {
+    let (directory, root) = relative_tempdir();
+    let path_file = root.join("not-a-directory");
+    std::fs::write(&path_file, "not a directory").expect("write file");
+
+    let report = resolve_command(
+        &path_file.display().to_string(),
+        "tool",
+        PlatformMode::Posix,
+        None,
+        directory.path(),
+        true,
+    );
+
+    assert!(report.candidates.is_empty());
+    assert_eq!(
+        report.searched_directories,
+        [path_file.display().to_string()]
+    );
+}
+
+#[test]
+fn posix_directory_named_like_command_is_not_executable() {
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    std::fs::create_dir_all(bin.join("tool")).expect("create command directory");
+
+    let report = resolve_command(
+        &bin.display().to_string(),
+        "tool",
+        PlatformMode::Posix,
+        None,
+        directory.path(),
+        true,
+    );
+
+    assert!(report.candidates.is_empty());
 }
 
 #[test]
@@ -180,6 +246,33 @@ fn related_name_hint_is_not_a_match() {
 
     assert!(report.candidates.is_empty());
     assert_eq!(report.related_hints[0].command, "python3");
+}
+
+#[test]
+fn related_hints_omit_missing_related_commands() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+
+    let report = resolve_command(
+        "",
+        "python",
+        PlatformMode::Posix,
+        None,
+        directory.path(),
+        true,
+    );
+
+    assert!(report.candidates.is_empty());
+    assert!(report.related_hints.is_empty());
+}
+
+#[test]
+fn windows_command_suffix_after_separator_is_not_expanded() {
+    let rules = resolve_platform_rules(PlatformMode::Windows, Some(".EXE;.CMD"));
+
+    assert_eq!(
+        candidate_names(r"Scripts\tool.exe", &rules),
+        [r"Scripts\tool.exe"]
+    );
 }
 
 fn candidate_paths(report: &ResolutionReport) -> Vec<String> {
