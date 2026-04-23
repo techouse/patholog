@@ -1,0 +1,22 @@
+[
+  {
+    "comparison_key": "{root}/first",
+    "display": "{root}/first",
+    "exists": true,
+    "index": 1,
+    "is_dir": true,
+    "is_empty": false,
+    "kind": "directory",
+    "raw": "{root}/first"
+  },
+  {
+    "comparison_key": "{root}/second",
+    "display": "{root}/second",
+    "exists": true,
+    "index": 2,
+    "is_dir": true,
+    "is_empty": false,
+    "kind": "directory",
+    "raw": "{root}/second"
+  }
+]

@@ -1,0 +1,4 @@
+artifacts/
+target/
+corpus/*/*
+!corpus/*/*.json

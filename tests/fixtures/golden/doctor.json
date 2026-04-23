@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "entry_index": 1,
+      "entry_value": "{root}/missing",
+      "kind": "missing",
+      "message": "{root}/missing does not exist",
+      "related_indexes": []
+    }
+  ],
+  "entries": [
+    {
+      "comparison_key": "{root}/missing",
+      "display": "{root}/missing",
+      "exists": false,
+      "index": 1,
+      "is_dir": false,
+      "is_empty": false,
+      "kind": "missing",
+      "raw": "{root}/missing"
+    }
+  ]
+}

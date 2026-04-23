@@ -1,0 +1,10 @@
+Command: tool
+
+Resolved to:
+  {root}/first/tool
+
+Why:
+  entry 1 ({root}/first) appears before all other matching PATH entries.
+
+Other matches:
+  2  {root}/second/tool

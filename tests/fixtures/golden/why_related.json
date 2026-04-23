@@ -1,0 +1,17 @@
+{
+  "candidates": [],
+  "command": "python",
+  "found": false,
+  "related_hints": [
+    {
+      "command": "python3",
+      "paths": [
+        "{root}/bin/python3"
+      ]
+    }
+  ],
+  "searched_directories": [
+    "{root}/bin"
+  ],
+  "winner": null
+}

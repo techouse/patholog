@@ -1,0 +1,29 @@
+{
+  "candidates": [
+    {
+      "directory": "{root}/first",
+      "entry_index": 1,
+      "path": "{root}/first/tool",
+      "wins": true
+    },
+    {
+      "directory": "{root}/second",
+      "entry_index": 2,
+      "path": "{root}/second/tool",
+      "wins": false
+    }
+  ],
+  "command": "tool",
+  "found": true,
+  "related_hints": [],
+  "searched_directories": [
+    "{root}/first",
+    "{root}/second"
+  ],
+  "winner": {
+    "directory": "{root}/first",
+    "entry_index": 1,
+    "path": "{root}/first/tool",
+    "wins": true
+  }
+}

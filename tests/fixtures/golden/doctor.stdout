@@ -1,0 +1,13 @@
+PATH entries: 5
+
+Duplicates:
+  {root}/keep (2x; entries 1, 5)
+
+Missing directories:
+  2  {root}/missing
+
+Non-directories:
+  3  {root}/file
+
+Empty entries:
+  4  <empty>
