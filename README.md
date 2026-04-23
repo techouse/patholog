@@ -2,6 +2,8 @@
 
 Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
+[![Test](https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg)](https://github.com/techouse/patholog/actions/workflows/test.yml)
+
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, and prints a cleaned PATH proposal. The v0.1 Rust crate is a strict port of the Python rapid prototype, with the public surface intentionally limited to read-only diagnostics and `clean --stdout`.
 
 ## Quick Examples
