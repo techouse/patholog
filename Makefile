@@ -8,7 +8,7 @@ PACKAGE_LIST ?= /tmp/patholog-package-list.txt
 FUZZ_TARGETS ?= path_clean path_parse_doctor cli_read_only
 FUZZ_SMOKE_SECONDS ?= 30
 
-.PHONY: help build build-release clean fmt fmt-check clippy test test-all \
+.PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
 	test-doc coverage coverage-html msrv package-list package-check docs \
 	docs-missing third-party-licenses third-party-licenses-check \
 	publish-dry-run pre-release ci fuzz-build fuzz-smoke fuzz-soak
@@ -36,6 +36,9 @@ fmt-check: ## Check Rust formatting, including fuzz targets
 
 clippy: ## Run clippy with CI warning policy
 	$(CARGO) clippy --all-targets --all-features --locked -- -D warnings
+
+fuzz-clippy: ## Run clippy for the cargo-fuzz support crate
+	$(CARGO) clippy --manifest-path fuzz/Cargo.toml --all-targets --locked -- -D warnings
 
 test: ## Run default tests
 	$(CARGO) test --locked
@@ -85,6 +88,7 @@ publish-dry-run: ## Verify crates.io publishability without uploading
 pre-release: ## Run the full local gate before tagging a release
 	$(MAKE) fmt-check
 	$(MAKE) clippy
+	$(MAKE) fuzz-clippy
 	$(MAKE) test
 	$(MAKE) test-all
 	$(MAKE) test-doc
@@ -99,6 +103,7 @@ pre-release: ## Run the full local gate before tagging a release
 ci: ## Run the main local CI checks
 	$(MAKE) fmt-check
 	$(MAKE) clippy
+	$(MAKE) fuzz-clippy
 	$(MAKE) test
 	$(MAKE) test-doc
 	$(MAKE) msrv
