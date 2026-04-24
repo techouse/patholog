@@ -29,7 +29,9 @@ fn issue_kind_by_value(value: &str) -> Option<IssueKind> {
         "empty" => Some(IssueKind::Empty),
         "missing" => Some(IssueKind::Missing),
         "not_directory" => Some(IssueKind::NotDirectory),
+        "unreadable" => Some(IssueKind::Unreadable),
         "suspicious_order" => Some(IssueKind::SuspiciousOrder),
+        "shadowed_command" => Some(IssueKind::ShadowedCommand),
         _ => None,
     }
 }

@@ -33,6 +33,13 @@ pub(crate) fn format_doctor(report: &DoctorReport) -> String {
     );
     append_diagnostic_group(
         &mut lines,
+        "Unreadable directories:",
+        &report.diagnostics,
+        IssueKind::Unreadable,
+        format_indexed,
+    );
+    append_diagnostic_group(
+        &mut lines,
         "Empty entries:",
         &report.diagnostics,
         IssueKind::Empty,
@@ -43,6 +50,13 @@ pub(crate) fn format_doctor(report: &DoctorReport) -> String {
         "Ordering warnings:",
         &report.diagnostics,
         IssueKind::SuspiciousOrder,
+        format_message,
+    );
+    append_diagnostic_group(
+        &mut lines,
+        "Shadowed commands:",
+        &report.diagnostics,
+        IssueKind::ShadowedCommand,
         format_message,
     );
 

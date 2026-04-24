@@ -2,6 +2,14 @@
 
 All notable changes to patholog are documented here.
 
+## 0.2.0 - Unreleased
+
+- Added read-only `patholog scan` for shell startup profile PATH mutation discovery.
+- Added `doctor --command <command>` shadowed executable diagnostics.
+- Added unreadable PATH directory diagnostics.
+- Added `unreadable` and `shadowed_command` issue kinds for `doctor --fail-on`.
+- Kept v0.1 parity output stable for existing golden fixture scenarios.
+
 ## 0.1.0 - 2026-04-23
 
 - Initial Rust release of `patholog`.

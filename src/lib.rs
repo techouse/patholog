@@ -13,6 +13,7 @@ pub(crate) mod normalize;
 pub(crate) mod output;
 pub(crate) mod path_env;
 pub(crate) mod platform;
+pub(crate) mod profile_scan;
 pub(crate) mod resolve;
 
 #[cfg(feature = "fuzzing")]

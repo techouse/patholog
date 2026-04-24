@@ -13,6 +13,7 @@ pub(crate) fn context(path_value: &str, pathext: Option<&str>, cwd: &Path) -> Co
         path_value: path_value.to_owned(),
         pathext: pathext.map(str::to_owned),
         cwd: cwd.to_path_buf(),
+        home_dir: Some(cwd.to_path_buf()),
     }
 }
 

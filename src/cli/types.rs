@@ -13,6 +13,8 @@ pub struct CommandContext {
     pub pathext: Option<String>,
     /// Current working directory used for empty PATH entries.
     pub cwd: PathBuf,
+    /// Home directory used by read-only profile scanning.
+    pub home_dir: Option<PathBuf>,
 }
 
 impl CommandContext {
@@ -23,8 +25,16 @@ impl CommandContext {
             path_value: std::env::var("PATH").unwrap_or_default(),
             pathext: std::env::var("PATHEXT").ok(),
             cwd: std::env::current_dir().unwrap_or_else(|_error| PathBuf::from(".")),
+            home_dir: home_dir_from_env(),
         }
     }
+}
+
+fn home_dir_from_env() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .filter(|value| !value.as_os_str().is_empty())
+        .or_else(|| std::env::var_os("USERPROFILE").filter(|value| !value.as_os_str().is_empty()))
+        .map(PathBuf::from)
 }
 
 /// Result produced by the library CLI entry point.
@@ -78,6 +88,7 @@ pub(super) enum Command {
     Why(ResolutionOptions),
     Conflicts(ResolutionOptions),
     Clean(CleanOptions),
+    Scan(ScanOptions),
 }
 
 #[derive(Args)]
@@ -94,6 +105,8 @@ pub(super) struct DoctorOptions {
     pub(super) common: CommonOptions,
     #[arg(long, default_value = "", value_name = "KINDS")]
     pub(super) fail_on: String,
+    #[arg(long, value_name = "COMMAND")]
+    pub(super) command: Option<String>,
 }
 
 #[derive(Args)]
@@ -109,4 +122,12 @@ pub(super) struct CleanOptions {
     pub(super) platform: PlatformMode,
     #[arg(long)]
     pub(super) stdout: bool,
+}
+
+#[derive(Args)]
+pub(super) struct ScanOptions {
+    #[command(flatten)]
+    pub(super) common: CommonOptions,
+    #[arg(long, value_name = "DIR")]
+    pub(super) home: Option<PathBuf>,
 }

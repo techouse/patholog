@@ -41,10 +41,37 @@ The broader product ideas in this document remain valid, but these are explicitl
 promoted later:
 
 * `clean --export`
-* unreadable-directory diagnostics
-* shadowed-command diagnostics
 * inode or canonical-file duplicate analysis
 * shell profile mutation or `apply`
+
+---
+
+## 1.2 Read-Only Diagnostics Milestone (v0.2)
+
+v0.2 expands beyond Python parity while preserving the read-first safety model. It should add diagnostics that inspect
+current state and startup configuration without mutating files or environment variables.
+
+v0.2 read-only commands and flags:
+
+```bash
+patholog doctor [--json] [--platform auto|posix|windows] [--fail-on=missing,duplicate,...]
+patholog doctor --command <command> [--json] [--platform auto|posix|windows]
+patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
+```
+
+v0.2 read-only diagnostics:
+
+* unreadable PATH directories
+* command candidates shadowed by earlier PATH entries via `doctor --command`
+* shell startup profile scanning for likely PATH mutations via `scan`
+
+Still post-v0.2 unless deliberately promoted:
+
+* automatic shell profile editing
+* `apply`
+* inode or canonical-file duplicate analysis
+* long-running `watch`
+* package-manager install hints
 
 ---
 
@@ -83,7 +110,7 @@ Should report:
 * non-existent directories
 * empty entries
 * suspicious ordering
-* unreadable directories where relevant in a future post-parity release
+* unreadable directories where relevant
 
 ---
 
@@ -125,6 +152,27 @@ Should emit a deduplicated, sanitised PATH string without mutating user files.
 
 ---
 
+### 3.5 Diagnose command-specific shadowing
+
+```bash
+patholog doctor --command python
+```
+
+Should report command candidates that exist but lose to earlier PATH entries.
+
+---
+
+### 3.6 Scan shell startup files read-only
+
+```bash
+patholog scan
+```
+
+Should inspect known shell startup profiles under the user's home directory and report likely PATH mutation lines without
+editing those files.
+
+---
+
 ## 4. Initial CLI Surface (v0.1)
 
 ### Commands
@@ -146,6 +194,18 @@ patholog print --json
 patholog why <command> --json
 patholog conflicts <command> --json
 ```
+
+---
+
+## 4.1 v0.2 Read-Only CLI Additions
+
+```bash
+patholog doctor --command <command>
+patholog doctor --fail-on=unreadable,shadowed_command
+patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
+```
+
+`scan --home` exists for deterministic inspection of an alternate home directory and must remain read-only.
 
 ---
 
@@ -196,9 +256,11 @@ Analyses the current PATH and emits diagnostics.
 * empty entries
 * non-existent directories
 * non-directory entries
+* unreadable directories
 * suspicious ordering heuristics
+* shadowed command candidates when `--command` is provided
 
-Unreadable entries and broader platform-specific oddities are post-parity diagnostics.
+Broader platform-specific oddities remain post-v0.2 diagnostics unless deliberately promoted.
 
 ### Example output
 
@@ -234,6 +296,17 @@ patholog doctor --fail-on=missing,duplicate
 ```
 
 Useful in CI and shell startup checks.
+
+---
+
+### `--command`
+
+```bash
+patholog doctor --command python
+```
+
+Runs normal PATH diagnostics and adds command-focused shadowing diagnostics. A shadowed command diagnostic means an
+executable candidate was found later in PATH but an earlier candidate wins.
 
 ---
 
@@ -371,11 +444,40 @@ Exit code:
 
 ---
 
+## 5.6 `scan`
+
+```bash
+patholog scan
+```
+
+Scans known shell startup profiles under the user's home directory and reports likely PATH mutations.
+
+### Behaviour
+
+* read files only
+* do not source, execute, or edit shell profiles
+* ignore missing profiles in human output
+* report unreadable existing profiles
+* support `--home <dir>` for inspecting an alternate home directory
+
+### Profile families
+
+POSIX mode considers zsh, bash, `.profile`, and PowerShell Core profile paths under `$HOME`.
+
+Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`.
+
+### Exit code
+
+* `0` on successful scan
+* `1` if no home directory is available and `--home` was not provided, or on runtime error
+
+---
+
 ## 6. v0.1 Safety Model
 
 ### Read-only by default
 
-All commands in v0.1 must be read-only except for printing proposed cleaned output.
+All commands in v0.1 and v0.2 must be read-only except for printing proposed cleaned output.
 
 ### No automatic mutation
 
@@ -454,6 +556,11 @@ v0.1 parity issue-kind strings:
 * `not_directory`
 * `suspicious_order`
 
+v0.2 read-only issue-kind strings:
+
+* `unreadable`
+* `shadowed_command`
+
 Suggested Rust enum:
 
 ```rust
@@ -462,11 +569,14 @@ enum IssueKind {
     Empty,
     Missing,
     NotDirectory,
+    Unreadable,
     SuspiciousOrder,
+    ShadowedCommand,
 }
 ```
 
-Unreadable and shadowed-command diagnostics are future extensions, not v0.1 parity issue kinds.
+Unreadable and shadowed-command diagnostics are post-parity and must not change v0.1 golden output unless those
+conditions are present.
 
 ---
 
@@ -664,7 +774,7 @@ Examples:
 
 ---
 
-## 13. Required v0.1 Test Cases
+## 13. Required Test Cases
 
 Minimum coverage:
 
@@ -682,6 +792,9 @@ Minimum coverage:
 12. `clean --stdout` preserves first-win order
 13. JSON output matches Python golden fixtures
 14. `doctor --fail-on` returns exit code 2 correctly
+15. unreadable directory diagnostics when the host can represent them
+16. `doctor --command` reports shadowed candidates
+17. `scan` reports PATH mutations in shell startup profiles
 
 ---
 
@@ -717,12 +830,13 @@ Show common pain:
 Explain:
 
 * Windows command resolution differs
-* shell config mutation is not performed in v0.1
+* shell config mutation is not performed
+* `scan` reads startup profiles but does not source or edit them
 * `clean` only proposes output
 
 ---
 
-## 15. Explicit Non-Goals for v0.1
+## 15. Explicit Non-Goals for v0.1/v0.2
 
 Do not implement yet:
 
@@ -739,12 +853,10 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible v0.2+ features:
+Possible v0.3+ features:
 
 * `apply --shell zsh|bash|pwsh`
-* scan shell startup files for PATH mutations
 * `why-not <command>` with install hints
-* `doctor --command <name>` command-focused checks
 * `watch` to detect PATH drift
 * shell completion generation
 * machine-readable health score

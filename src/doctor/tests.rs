@@ -1,6 +1,8 @@
 use crate::model::{IssueKind, PlatformMode};
 
-use super::diagnose_path;
+use std::path::Path;
+
+use super::{diagnose_command_path, diagnose_path};
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
@@ -96,4 +98,92 @@ fn windows_duplicate_detection_is_case_insensitive() {
             .iter()
             .any(|diagnostic| diagnostic.kind == IssueKind::Duplicate)
     );
+}
+
+#[test]
+fn command_diagnostics_report_shadowed_candidates() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let first = directory.path().join("first");
+    let second = directory.path().join("second");
+    make_executable(&first.join("tool"));
+    make_executable(&second.join("tool"));
+
+    let report = diagnose_command_path(
+        &format!("{}:{}", first.display(), second.display()),
+        "tool",
+        PlatformMode::Posix,
+        None,
+        directory.path(),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::ShadowedCommand
+                && diagnostic.message.contains("tool at")
+                && diagnostic.message.contains("is shadowed by"))
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn diagnose_path_reports_unreadable_directories() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let restricted = directory.path().join("restricted");
+    std::fs::create_dir(&restricted).expect("create restricted");
+
+    let mut permissions = std::fs::metadata(&restricted)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o000);
+    std::fs::set_permissions(&restricted, permissions).expect("restrict directory");
+
+    if std::fs::read_dir(&restricted).is_ok() {
+        restore_directory_permissions(&restricted);
+        return;
+    }
+
+    let report = diagnose_path(&restricted.display().to_string(), PlatformMode::Posix, None);
+    restore_directory_permissions(&restricted);
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::Unreadable)
+    );
+}
+
+fn make_executable(path: &Path) {
+    std::fs::create_dir_all(path.parent().expect("path has parent")).expect("create parent");
+    std::fs::write(path, "#!/bin/sh\nexit 0\n").expect("write executable");
+    make_permissions_executable(path);
+}
+
+#[cfg(unix)]
+fn make_permissions_executable(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = std::fs::metadata(path)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(path, permissions).expect("set executable");
+}
+
+#[cfg(not(unix))]
+fn make_permissions_executable(_path: &Path) {}
+
+#[cfg(unix)]
+fn restore_directory_permissions(path: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    let mut permissions = std::fs::metadata(path)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o755);
+    std::fs::set_permissions(path, permissions).expect("restore permissions");
 }
