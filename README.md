@@ -4,14 +4,16 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 [![Test](https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg)](https://github.com/techouse/patholog/actions/workflows/test.yml)
 
-`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, and prints a cleaned PATH proposal. The v0.1 Rust crate is a strict port of the Python rapid prototype, with the public surface intentionally limited to read-only diagnostics and `clean --stdout`.
+`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, and prints a cleaned PATH proposal. v0.1 is preserved as the Python-parity checkpoint; v0.2 adds read-only diagnostics without mutating shell configuration.
 
 ## Quick Examples
 
 ```sh
 patholog doctor
+patholog doctor --command python
 patholog why python
 patholog conflicts cargo
+patholog scan
 patholog clean --stdout
 ```
 
@@ -22,6 +24,7 @@ PATH problems are usually invisible until the wrong tool runs. `patholog` is bui
 - `python`, `node`, or `cargo` resolving to an unexpected executable.
 - duplicate PATH entries hiding the real search order.
 - missing directories left behind by old installers.
+- unreadable PATH entries or shadowed command candidates.
 - Cargo, Homebrew, pyenv, nvm, or system directories appearing in surprising order.
 - shell config drift between machines.
 
@@ -31,21 +34,38 @@ The goal is to explain before changing anything.
 
 ```sh
 patholog print [--json] [--platform auto|posix|windows]
-patholog doctor [--json] [--platform auto|posix|windows] [--fail-on=missing,duplicate,...]
+patholog doctor [--json] [--platform auto|posix|windows] [--fail-on=missing,duplicate,...] [--command <command>]
 patholog why <command> [--json] [--platform auto|posix|windows]
 patholog conflicts <command> [--json] [--platform auto|posix|windows]
+patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
 patholog clean --stdout [--platform auto|posix|windows]
 ```
 
-`patholog` does not mutate shell profiles, environment variables, or files in v0.1.
+`patholog` does not mutate shell profiles, environment variables, or files.
+
+## Read-Only Diagnostics
+
+`doctor` reports duplicate, missing, non-directory, unreadable, empty, and suspiciously ordered PATH entries. With `--command`, it also reports executable candidates shadowed by an earlier winner:
+
+```sh
+patholog doctor --command python
+```
+
+`scan` reads known shell startup profiles under the home directory and reports likely PATH mutation lines. It does not source or edit those files:
+
+```sh
+patholog scan
+patholog scan --home /tmp/example-home
+```
 
 ## Output Modes
 
-Human output is the default. JSON output is available for `print`, `doctor`, `why`, and `conflicts`:
+Human output is the default. JSON output is available for `print`, `doctor`, `why`, `conflicts`, and `scan`:
 
 ```sh
 patholog doctor --json
 patholog why python --json
+patholog scan --json
 ```
 
 `clean --stdout` prints a raw PATH string suitable for review or manual export.
@@ -65,11 +85,11 @@ patholog why python --json
 
 Windows command resolution differs from POSIX lookup because file extensions and `PATHEXT` affect which executable wins. `patholog --platform windows` models that behavior for tests and cross-platform inspection.
 
-PATH values are handled as UTF-8 strings for v0.1 parity. Symlinks, inode identity, and canonical-file identity are not analyzed.
+PATH values are handled as UTF-8 strings to preserve v0.1 parity. Symlinks, inode identity, and canonical-file identity are not analyzed.
 
 ## Safety
 
-All v0.1 commands are read-only except for writing output to stdout or stderr. `patholog` does not edit:
+All commands are read-only except for writing output to stdout or stderr. `patholog` does not edit:
 
 - `~/.zshrc`
 - `~/.bashrc`

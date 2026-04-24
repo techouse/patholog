@@ -1,15 +1,20 @@
 use crate::clean::clean_path;
-use crate::doctor::diagnose_path;
+use crate::doctor::{diagnose_command_path, diagnose_path};
 use crate::model::ExitCode;
-use crate::output::human::{format_conflicts, format_doctor, format_print, format_why};
-use crate::output::json::{doctor_to_json, dumps_json, entries_to_json, resolution_to_json};
+use crate::output::human::{
+    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
+};
+use crate::output::json::{
+    doctor_to_json, dumps_json, entries_to_json, resolution_to_json, shell_profile_scan_to_json,
+};
 use crate::path_env::parse_path;
+use crate::profile_scan::scan_shell_profiles;
 use crate::resolve::resolve_command;
 
 use super::fail_on::parse_fail_on;
 use super::types::{
     CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions, DoctorOptions,
-    ResolutionOptions,
+    ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
@@ -19,6 +24,7 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
         Command::Why(options) => run_why(options, context),
         Command::Conflicts(options) => run_conflicts(options, context),
         Command::Clean(options) => run_clean(options, context),
+        Command::Scan(options) => run_scan(options, context),
     }
 }
 
@@ -35,11 +41,21 @@ fn run_print(options: CommonOptions, context: &CommandContext) -> CliResult {
 }
 
 fn run_doctor(options: DoctorOptions, context: &CommandContext) -> CliResult {
-    let report = diagnose_path(
-        &context.path_value,
-        options.common.platform,
-        context.pathext.as_deref(),
-    );
+    let report = if let Some(command) = options.command.as_deref() {
+        diagnose_command_path(
+            &context.path_value,
+            command,
+            options.common.platform,
+            context.pathext.as_deref(),
+            &context.cwd,
+        )
+    } else {
+        diagnose_path(
+            &context.path_value,
+            options.common.platform,
+            context.pathext.as_deref(),
+        )
+    };
     let selected_issue_kinds = match parse_fail_on(&options.fail_on) {
         Ok(selected_issue_kinds) => selected_issue_kinds,
         Err(message) => return CliResult::error(message),
@@ -122,6 +138,18 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
             context.pathext.as_deref()
         )
     ))
+}
+
+fn run_scan(options: ScanOptions, context: &CommandContext) -> CliResult {
+    let Some(home) = options.home.as_deref().or(context.home_dir.as_deref()) else {
+        return CliResult::error("scan requires a home directory; set HOME or pass --home");
+    };
+
+    let report = scan_shell_profiles(home, options.common.platform);
+    if options.common.json {
+        return json_result(shell_profile_scan_to_json(&report));
+    }
+    CliResult::success(format_shell_profile_scan(&report))
 }
 
 fn json_result(value: serde_json::Value) -> CliResult {

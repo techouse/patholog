@@ -14,5 +14,7 @@ fn issue_kinds_match_cli_and_json_contract() {
     assert_eq!(IssueKind::Empty.as_str(), "empty");
     assert_eq!(IssueKind::Missing.as_str(), "missing");
     assert_eq!(IssueKind::NotDirectory.as_str(), "not_directory");
+    assert_eq!(IssueKind::Unreadable.as_str(), "unreadable");
     assert_eq!(IssueKind::SuspiciousOrder.as_str(), "suspicious_order");
+    assert_eq!(IssueKind::ShadowedCommand.as_str(), "shadowed_command");
 }

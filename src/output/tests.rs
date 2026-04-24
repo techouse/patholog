@@ -1,10 +1,12 @@
 use crate::model::{
-    Diagnostic, DoctorReport, IssueKind, PathEntry, RelatedExecutableHint, ResolutionCandidate,
-    ResolutionReport,
+    Diagnostic, DoctorReport, IssueKind, PathEntry, PathMutation, RelatedExecutableHint,
+    ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport,
 };
 
-use super::human::{format_conflicts, format_doctor, format_print, format_why};
-use super::json::{doctor_to_json, dumps_json, resolution_to_json};
+use super::human::{
+    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
+};
+use super::json::{doctor_to_json, dumps_json, resolution_to_json, shell_profile_scan_to_json};
 
 #[test]
 fn format_doctor_groups_diagnostics_in_contract_order() {
@@ -63,6 +65,25 @@ fn format_doctor_renders_ordering_messages() {
     assert_eq!(
         format_doctor(&report),
         "PATH entries: 0\n\nOrdering warnings:\n  /bin appears before /home/me/.cargo/bin\n"
+    );
+}
+
+#[test]
+fn format_doctor_renders_shadowed_command_messages() {
+    let report = DoctorReport {
+        entries: Vec::new(),
+        diagnostics: vec![Diagnostic {
+            kind: IssueKind::ShadowedCommand,
+            message: "tool at /b/tool is shadowed by /a/tool".to_owned(),
+            entry_index: Some(2),
+            entry_value: Some("/b/tool".to_owned()),
+            related_indexes: vec![1, 2],
+        }],
+    };
+
+    assert_eq!(
+        format_doctor(&report),
+        "PATH entries: 0\n\nShadowed commands:\n  tool at /b/tool is shadowed by /a/tool\n"
     );
 }
 
@@ -155,6 +176,50 @@ fn json_output_classifies_entry_kinds_and_missing_winner() {
     assert!(resolution.contains("\"winner\": null"));
 }
 
+#[test]
+fn format_shell_profile_scan_renders_path_mutations() {
+    let report = ShellProfileScanReport {
+        home: "/home/me".to_owned(),
+        profiles: vec![ShellProfile {
+            shell: "zsh",
+            path: "/home/me/.zshrc".to_owned(),
+            exists: true,
+            is_file: true,
+            readable: true,
+            path_mutations: vec![PathMutation {
+                line: 3,
+                kind: "path_assignment",
+                text: "export PATH=\"$HOME/bin:$PATH\"".to_owned(),
+            }],
+        }],
+    };
+
+    assert_eq!(
+        format_shell_profile_scan(&report),
+        "Shell profile scan: /home/me\n\nPATH changes:\n  /home/me/.zshrc (zsh)\n    line 3  path_assignment  export PATH=\"$HOME/bin:$PATH\"\n"
+    );
+}
+
+#[test]
+fn shell_profile_scan_json_includes_profile_state() {
+    let report = ShellProfileScanReport {
+        home: "/home/me".to_owned(),
+        profiles: vec![ShellProfile {
+            shell: "bash",
+            path: "/home/me/.bashrc".to_owned(),
+            exists: true,
+            is_file: true,
+            readable: false,
+            path_mutations: Vec::new(),
+        }],
+    };
+
+    let output = dumps_json(&shell_profile_scan_to_json(&report)).expect("render shell scan json");
+
+    assert!(output.contains("\"path\": \"/home/me/.bashrc\""));
+    assert!(output.contains("\"readable\": false"));
+}
+
 fn entry(index: usize, raw: &str) -> PathEntry {
     entry_with_state(index, raw, !raw.is_empty(), !raw.is_empty(), raw.is_empty())
 }
@@ -173,6 +238,7 @@ fn entry_with_state(
         comparison_key: raw.to_owned(),
         exists,
         is_dir,
+        is_readable: is_dir,
         is_empty,
     }
 }

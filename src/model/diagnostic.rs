@@ -11,8 +11,12 @@ pub enum IssueKind {
     Missing,
     /// PATH entry that exists but is not a directory.
     NotDirectory,
+    /// PATH entry that exists as a directory but cannot be read.
+    Unreadable,
     /// Heuristic warning about PATH entry ordering.
     SuspiciousOrder,
+    /// A command candidate hidden by an earlier PATH entry.
+    ShadowedCommand,
 }
 
 impl IssueKind {
@@ -24,7 +28,9 @@ impl IssueKind {
             Self::Empty => "empty",
             Self::Missing => "missing",
             Self::NotDirectory => "not_directory",
+            Self::Unreadable => "unreadable",
             Self::SuspiciousOrder => "suspicious_order",
+            Self::ShadowedCommand => "shadowed_command",
         }
     }
 }

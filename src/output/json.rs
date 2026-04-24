@@ -1,6 +1,9 @@
 use serde_json::{Value, json};
 
-use crate::model::{Diagnostic, DoctorReport, PathEntry, ResolutionCandidate, ResolutionReport};
+use crate::model::{
+    Diagnostic, DoctorReport, PathEntry, PathMutation, ResolutionCandidate, ResolutionReport,
+    ShellProfile, ShellProfileScanReport,
+};
 
 pub(crate) fn dumps_json(value: &Value) -> Result<String, serde_json::Error> {
     serde_json::to_string_pretty(value).map(|json| format!("{json}\n"))
@@ -36,6 +39,13 @@ pub(crate) fn resolution_to_json(report: &ResolutionReport) -> Value {
                 "paths": hint.paths,
             })
         }).collect::<Vec<_>>(),
+    })
+}
+
+pub(crate) fn shell_profile_scan_to_json(report: &ShellProfileScanReport) -> Value {
+    json!({
+        "home": report.home,
+        "profiles": report.profiles.iter().map(shell_profile_to_json).collect::<Vec<_>>(),
     })
 }
 
@@ -80,5 +90,24 @@ fn candidate_to_json(candidate: &ResolutionCandidate) -> Value {
         "directory": candidate.directory,
         "path": candidate.path,
         "wins": candidate.wins,
+    })
+}
+
+fn shell_profile_to_json(profile: &ShellProfile) -> Value {
+    json!({
+        "shell": profile.shell,
+        "path": profile.path,
+        "exists": profile.exists,
+        "is_file": profile.is_file,
+        "readable": profile.readable,
+        "path_mutations": profile.path_mutations.iter().map(path_mutation_to_json).collect::<Vec<_>>(),
+    })
+}
+
+fn path_mutation_to_json(mutation: &PathMutation) -> Value {
+    json!({
+        "line": mutation.line,
+        "kind": mutation.kind,
+        "text": mutation.text,
     })
 }
