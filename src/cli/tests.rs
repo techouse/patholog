@@ -32,13 +32,13 @@ fn doctor_command_reports_shadowed_candidates() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let first = directory.path().join("first");
     let second = directory.path().join("second");
-    make_executable(&first.join("tool"));
-    make_executable(&second.join("tool"));
+    make_executable(&first.join("tool.exe"));
+    make_executable(&second.join("tool.exe"));
 
     let result = run(
-        ["doctor", "--platform", "posix", "--command", "tool"],
+        ["doctor", "--platform", "windows", "--command", "tool"],
         context_with_cwd(
-            &format!("{}:{}", first.display(), second.display()),
+            &format!("{};{}", first.display(), second.display()),
             None,
             directory.path(),
         ),
