@@ -68,7 +68,6 @@ fn entry(index: usize, raw: &str, comparison_key: &str, is_empty: bool) -> PathE
         comparison_key: comparison_key.to_owned(),
         exists: false,
         is_dir: false,
-        is_readable: false,
         is_empty,
     }
 }

@@ -13,8 +13,6 @@ pub struct PathEntry {
     pub exists: bool,
     /// Whether the entry exists and is a directory.
     pub is_dir: bool,
-    /// Whether the entry is a readable directory.
-    pub is_readable: bool,
     /// Whether this is an empty PATH entry.
     pub is_empty: bool,
 }
