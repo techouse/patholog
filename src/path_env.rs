@@ -24,22 +24,19 @@ pub(crate) fn parse_path(
                     comparison_key: String::new(),
                     exists: false,
                     is_dir: false,
-                    is_readable: false,
                     is_empty: true,
                 };
             }
 
             let path = Path::new(raw_entry);
             let exists = path.exists();
-            let is_dir = exists && path.is_dir();
             PathEntry {
                 index,
                 raw: raw_entry.to_owned(),
                 display: raw_entry.to_owned(),
                 comparison_key: comparison_key(raw_entry, &rules),
                 exists,
-                is_dir,
-                is_readable: is_dir && std::fs::read_dir(path).is_ok(),
+                is_dir: exists && path.is_dir(),
                 is_empty: false,
             }
         })

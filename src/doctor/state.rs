@@ -9,11 +9,15 @@ pub(super) fn diagnostics(entries: &[PathEntry]) -> Vec<Diagnostic> {
             diagnostics.push(missing_diagnostic(entry));
         } else if !entry.is_dir {
             diagnostics.push(not_directory_diagnostic(entry));
-        } else if !entry.is_readable {
+        } else if !is_readable_directory(entry) {
             diagnostics.push(unreadable_diagnostic(entry));
         }
     }
     diagnostics
+}
+
+fn is_readable_directory(entry: &PathEntry) -> bool {
+    std::fs::read_dir(&entry.raw).is_ok()
 }
 
 fn empty_diagnostic(entry: &PathEntry) -> Diagnostic {

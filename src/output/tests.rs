@@ -258,7 +258,6 @@ fn entry_with_state(
         comparison_key: raw.to_owned(),
         exists,
         is_dir,
-        is_readable: is_dir,
         is_empty,
     }
 }
