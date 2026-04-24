@@ -105,13 +105,13 @@ fn command_diagnostics_report_shadowed_candidates() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let first = directory.path().join("first");
     let second = directory.path().join("second");
-    make_executable(&first.join("tool"));
-    make_executable(&second.join("tool"));
+    make_executable(&first.join("tool.exe"));
+    make_executable(&second.join("tool.exe"));
 
     let report = diagnose_command_path(
-        &format!("{}:{}", first.display(), second.display()),
+        &format!("{};{}", first.display(), second.display()),
         "tool",
-        PlatformMode::Posix,
+        PlatformMode::Windows,
         None,
         directory.path(),
     );
