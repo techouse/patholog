@@ -201,6 +201,26 @@ fn format_shell_profile_scan_renders_path_mutations() {
 }
 
 #[test]
+fn format_shell_profile_scan_does_not_report_non_files_as_unreadable() {
+    let report = ShellProfileScanReport {
+        home: "/home/me".to_owned(),
+        profiles: vec![ShellProfile {
+            shell: "zsh",
+            path: "/home/me/.zshrc".to_owned(),
+            exists: true,
+            is_file: false,
+            readable: false,
+            path_mutations: Vec::new(),
+        }],
+    };
+
+    assert_eq!(
+        format_shell_profile_scan(&report),
+        "Shell profile scan: /home/me\n\nNo PATH changes found in readable shell profiles.\n"
+    );
+}
+
+#[test]
 fn shell_profile_scan_json_includes_profile_state() {
     let report = ShellProfileScanReport {
         home: "/home/me".to_owned(),

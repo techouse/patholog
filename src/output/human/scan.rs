@@ -13,7 +13,7 @@ pub(crate) fn format_shell_profile_scan(report: &ShellProfileScanReport) -> Stri
     let unreadable_profiles = report
         .profiles
         .iter()
-        .filter(|profile| profile.exists && !profile.readable)
+        .filter(|profile| profile.exists && profile.is_file && !profile.readable)
         .collect::<Vec<_>>();
 
     if profiles_with_mutations.is_empty() && unreadable_profiles.is_empty() {
