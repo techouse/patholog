@@ -66,6 +66,7 @@ pub fn run_cli_read_only_bytes(data: &[u8]) {
         path_value: case.path,
         pathext: case.pathext,
         cwd: PathBuf::from("."),
+        home_dir: None,
     };
 
     for args in cli_args(&case.command_mode, platform, case.json) {
