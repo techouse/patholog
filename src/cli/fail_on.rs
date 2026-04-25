@@ -1,5 +1,8 @@
 use crate::model::IssueKind;
 
+const SUPPORTED_ISSUE_KIND_VALUES: &str =
+    "duplicate, empty, missing, not_directory, unreadable, suspicious_order, shadowed_command";
+
 pub(super) fn parse_fail_on(value: &str) -> Result<Vec<IssueKind>, String> {
     if value.is_empty() {
         return Ok(Vec::new());
@@ -13,7 +16,7 @@ pub(super) fn parse_fail_on(value: &str) -> Result<Vec<IssueKind>, String> {
         }
         let Some(kind) = issue_kind_by_value(kind_value) else {
             return Err(format!(
-                "unsupported issue kind {kind_value:?}; expected one of: duplicate, empty, missing, not_directory, suspicious_order"
+                "unsupported issue kind {kind_value:?}; expected one of: {SUPPORTED_ISSUE_KIND_VALUES}"
             ));
         };
         if !selected.contains(&kind) {
