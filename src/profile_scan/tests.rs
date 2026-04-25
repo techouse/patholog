@@ -47,6 +47,52 @@ fn scan_shell_profiles_reports_powershell_path_mutations() {
 }
 
 #[test]
+fn scan_shell_profiles_reports_posix_powershell_all_hosts_profile() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile_path = directory.path().join(".config/powershell/profile.ps1");
+    std::fs::create_dir_all(profile_path.parent().expect("profile has parent"))
+        .expect("create profile parent");
+    std::fs::write(&profile_path, "$env:Path = \"/opt/tools:$env:Path\"\n").expect("write profile");
+
+    let report = scan_shell_profiles(directory.path(), PlatformMode::Posix);
+    let profile = report
+        .profiles
+        .iter()
+        .find(|profile| profile.path == profile_path.display().to_string())
+        .expect("powershell all-host profile");
+
+    assert_eq!(profile.path_mutations.len(), 1);
+    assert_eq!(profile.path_mutations[0].kind, "powershell_env_path");
+}
+
+#[test]
+fn scan_shell_profiles_reports_windows_powershell_all_hosts_profiles() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let powershell_profile = directory.path().join("Documents/PowerShell/profile.ps1");
+    let windows_powershell_profile = directory
+        .path()
+        .join("Documents/WindowsPowerShell/profile.ps1");
+    for profile_path in [&powershell_profile, &windows_powershell_profile] {
+        std::fs::create_dir_all(profile_path.parent().expect("profile has parent"))
+            .expect("create profile parent");
+        std::fs::write(profile_path, "$env:Path = \"C:\\Tools;$env:Path\"\n")
+            .expect("write profile");
+    }
+
+    let report = scan_shell_profiles(directory.path(), PlatformMode::Windows);
+
+    for profile_path in [powershell_profile, windows_powershell_profile] {
+        let profile = report
+            .profiles
+            .iter()
+            .find(|profile| profile.path == profile_path.display().to_string())
+            .expect("powershell all-host profile");
+        assert_eq!(profile.path_mutations.len(), 1);
+        assert_eq!(profile.path_mutations[0].kind, "powershell_env_path");
+    }
+}
+
+#[test]
 fn line_display_truncates_at_character_boundary() {
     let prefix = "é".repeat(MAX_LINE_DISPLAY_CHARS);
     let line = format!("  {prefix}x  ");
