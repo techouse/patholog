@@ -14,6 +14,7 @@ pub(crate) fn context(path_value: &str, pathext: Option<&str>, cwd: &Path) -> Co
         pathext: pathext.map(str::to_owned),
         cwd: cwd.to_path_buf(),
         home_dir: Some(cwd.to_path_buf()),
+        user_profile_dir: Some(cwd.to_path_buf()),
     }
 }
 

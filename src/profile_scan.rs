@@ -44,6 +44,7 @@ fn posix_profiles(home: &Path) -> Vec<ProfileCandidate> {
         ("bash", ".bash_login"),
         ("bash", ".bashrc"),
         ("posix", ".profile"),
+        ("powershell", ".config/powershell/profile.ps1"),
         (
             "powershell",
             ".config/powershell/Microsoft.PowerShell_profile.ps1",
@@ -59,7 +60,9 @@ fn posix_profiles(home: &Path) -> Vec<ProfileCandidate> {
 
 fn windows_profiles(home: &Path) -> Vec<ProfileCandidate> {
     [
+        "Documents/PowerShell/profile.ps1",
         "Documents/PowerShell/Microsoft.PowerShell_profile.ps1",
+        "Documents/WindowsPowerShell/profile.ps1",
         "Documents/WindowsPowerShell/Microsoft.PowerShell_profile.ps1",
     ]
     .into_iter()

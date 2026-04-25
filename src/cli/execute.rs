@@ -1,6 +1,8 @@
+use std::path::Path;
+
 use crate::clean::clean_path;
 use crate::doctor::{diagnose_command_path, diagnose_path};
-use crate::model::ExitCode;
+use crate::model::{ExitCode, PlatformMode};
 use crate::output::human::{
     format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
 };
@@ -8,6 +10,7 @@ use crate::output::json::{
     doctor_to_json, dumps_json, entries_to_json, resolution_to_json, shell_profile_scan_to_json,
 };
 use crate::path_env::parse_path;
+use crate::platform::resolve_platform_rules;
 use crate::profile_scan::scan_shell_profiles;
 use crate::resolve::resolve_command;
 
@@ -141,7 +144,11 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
 }
 
 fn run_scan(options: ScanOptions, context: &CommandContext) -> CliResult {
-    let Some(home) = options.home.as_deref().or(context.home_dir.as_deref()) else {
+    let Some(home) = options
+        .home
+        .as_deref()
+        .or_else(|| scan_home_dir(options.common.platform, context))
+    else {
         return CliResult::error("scan requires a home directory; set HOME or pass --home");
     };
 
@@ -150,6 +157,19 @@ fn run_scan(options: ScanOptions, context: &CommandContext) -> CliResult {
         return json_result(shell_profile_scan_to_json(&report));
     }
     CliResult::success(format_shell_profile_scan(&report))
+}
+
+fn scan_home_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {
+    match resolve_platform_rules(platform_mode, None).mode {
+        PlatformMode::Windows => context
+            .user_profile_dir
+            .as_deref()
+            .or(context.home_dir.as_deref()),
+        PlatformMode::Auto | PlatformMode::Posix => context
+            .home_dir
+            .as_deref()
+            .or(context.user_profile_dir.as_deref()),
+    }
 }
 
 fn json_result(value: serde_json::Value) -> CliResult {

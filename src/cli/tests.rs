@@ -79,6 +79,26 @@ fn scan_home_option_overrides_missing_context_home() {
 }
 
 #[test]
+fn scan_windows_platform_prefers_userprofile_home() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let user_profile = directory.path().join("userprofile");
+    let profile = user_profile.join("Documents/PowerShell/profile.ps1");
+    std::fs::create_dir_all(profile.parent().expect("profile has parent"))
+        .expect("create profile parent");
+    std::fs::write(&profile, "$env:Path = \"C:\\Tools;$env:Path\"\n").expect("write profile");
+
+    let result = run(
+        ["scan", "--platform", "windows"],
+        context_with_home_dirs("", None, &home, &user_profile),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("PATH changes:"));
+    assert!(result.stdout.contains(&profile.display().to_string()));
+}
+
+#[test]
 fn scan_requires_home_directory() {
     let result = run(["scan"], context("", None));
 
@@ -161,6 +181,7 @@ fn context_with_cwd(path_value: &str, pathext: Option<&str>, cwd: &Path) -> Comm
         pathext: pathext.map(str::to_owned),
         cwd: cwd.to_path_buf(),
         home_dir: None,
+        user_profile_dir: None,
     }
 }
 
@@ -170,6 +191,22 @@ fn context_with_home(path_value: &str, pathext: Option<&str>, home: &Path) -> Co
         pathext: pathext.map(str::to_owned),
         cwd: Path::new(".").to_path_buf(),
         home_dir: Some(home.to_path_buf()),
+        user_profile_dir: None,
+    }
+}
+
+fn context_with_home_dirs(
+    path_value: &str,
+    pathext: Option<&str>,
+    home: &Path,
+    user_profile: &Path,
+) -> CommandContext {
+    CommandContext {
+        path_value: path_value.to_owned(),
+        pathext: pathext.map(str::to_owned),
+        cwd: Path::new(".").to_path_buf(),
+        home_dir: Some(home.to_path_buf()),
+        user_profile_dir: Some(user_profile.to_path_buf()),
     }
 }
 

@@ -13,8 +13,10 @@ pub struct CommandContext {
     pub pathext: Option<String>,
     /// Current working directory used for empty PATH entries.
     pub cwd: PathBuf,
-    /// Home directory used by read-only profile scanning.
+    /// HOME directory used by read-only profile scanning.
     pub home_dir: Option<PathBuf>,
+    /// USERPROFILE directory used by Windows profile scanning.
+    pub user_profile_dir: Option<PathBuf>,
 }
 
 impl CommandContext {
@@ -25,15 +27,15 @@ impl CommandContext {
             path_value: std::env::var("PATH").unwrap_or_default(),
             pathext: std::env::var("PATHEXT").ok(),
             cwd: std::env::current_dir().unwrap_or_else(|_error| PathBuf::from(".")),
-            home_dir: home_dir_from_env(),
+            home_dir: env_path("HOME"),
+            user_profile_dir: env_path("USERPROFILE"),
         }
     }
 }
 
-fn home_dir_from_env() -> Option<PathBuf> {
-    std::env::var_os("HOME")
+fn env_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
         .filter(|value| !value.as_os_str().is_empty())
-        .or_else(|| std::env::var_os("USERPROFILE").filter(|value| !value.as_os_str().is_empty()))
         .map(PathBuf::from)
 }
 
