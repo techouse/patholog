@@ -180,11 +180,12 @@ fn is_identifier_char(character: char) -> bool {
 
 fn line_display(line: &str) -> String {
     let trimmed = line.trim();
-    let mut display = trimmed
-        .chars()
+    let mut chars = trimmed.chars();
+    let mut display = chars
+        .by_ref()
         .take(MAX_LINE_DISPLAY_CHARS)
         .collect::<String>();
-    if trimmed.chars().count() > MAX_LINE_DISPLAY_CHARS {
+    if chars.next().is_some() {
         display.push_str("...");
     }
     display

@@ -1,6 +1,6 @@
 use crate::model::PlatformMode;
 
-use super::scan_shell_profiles;
+use super::{MAX_LINE_DISPLAY_CHARS, line_display, scan_shell_profiles};
 
 #[test]
 fn scan_shell_profiles_reports_path_mutations_in_existing_profiles() {
@@ -44,4 +44,12 @@ fn scan_shell_profiles_reports_powershell_path_mutations() {
 
     assert_eq!(profile.path_mutations.len(), 1);
     assert_eq!(profile.path_mutations[0].kind, "powershell_env_path");
+}
+
+#[test]
+fn line_display_truncates_at_character_boundary() {
+    let prefix = "é".repeat(MAX_LINE_DISPLAY_CHARS);
+    let line = format!("  {prefix}x  ");
+
+    assert_eq!(line_display(&line), format!("{prefix}..."));
 }
