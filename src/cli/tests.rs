@@ -123,6 +123,8 @@ fn invalid_fail_on_returns_runtime_error() {
     assert_eq!(result.exit_code, ExitCode::GeneralError);
     assert_eq!(result.stdout, "");
     assert!(result.stderr.contains("unsupported issue kind \"bogus\""));
+    assert!(result.stderr.contains("unreadable"));
+    assert!(result.stderr.contains("shadowed_command"));
 }
 
 #[test]
