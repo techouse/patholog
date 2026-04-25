@@ -126,6 +126,29 @@ fn command_diagnostics_report_shadowed_candidates() {
     );
 }
 
+#[test]
+fn command_diagnostics_ignore_same_path_entry_pathext_matches() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let bin = directory.path().join("bin");
+    make_executable(&bin.join("tool.cmd"));
+    make_executable(&bin.join("tool.exe"));
+
+    let report = diagnose_command_path(
+        &bin.display().to_string(),
+        "tool",
+        PlatformMode::Windows,
+        Some(".CMD;.EXE"),
+        directory.path(),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.kind != IssueKind::ShadowedCommand)
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn diagnose_path_reports_unreadable_directories() {

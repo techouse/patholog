@@ -7,7 +7,7 @@ pub(super) fn diagnostics(command: &str, candidates: &[ResolutionCandidate]) -> 
 
     candidates
         .iter()
-        .filter(|candidate| !candidate.wins)
+        .filter(|candidate| !candidate.wins && candidate.entry_index > winner.entry_index)
         .map(|candidate| shadowed_diagnostic(command, winner, candidate))
         .collect()
 }
