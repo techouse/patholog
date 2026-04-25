@@ -2,7 +2,7 @@
 
 All notable changes to patholog are documented here.
 
-## 0.2.0 - Unreleased
+## 0.2.0 - 2026-04-25
 
 - Added read-only `patholog scan` for shell startup profile PATH mutation discovery.
 - Added `doctor --command <command>` shadowed executable diagnostics.
