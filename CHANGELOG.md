@@ -2,6 +2,14 @@
 
 All notable changes to patholog are documented here.
 
+## 0.3.0 - 2026-05-03
+
+- Added read-only `clean --export --shell zsh|bash|fish|pwsh` shell assignment snippets.
+- Added `completions zsh|bash|fish|pwsh` for stdout-only shell completion generation.
+- Added shell-specific quoting for POSIX shells, fish, and PowerShell export output.
+- Added read-only fuzz corpus coverage for export snippets and completions.
+- Added release documentation for private v0.x release checks and tag verification.
+
 ## 0.2.0 - 2026-04-25
 
 - Added read-only `patholog scan` for shell startup profile PATH mutation discovery.

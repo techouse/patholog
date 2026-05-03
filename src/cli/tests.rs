@@ -6,11 +6,126 @@ use super::fail_on::parse_fail_on;
 use super::{CommandContext, run};
 
 #[test]
-fn clean_requires_stdout() {
+fn clean_requires_output_mode() {
     let result = run(["clean"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::GeneralError);
-    assert_eq!(result.stderr, "patholog: clean requires --stdout\n");
+    assert_eq!(
+        result.stderr,
+        "patholog: clean requires --stdout or --export\n"
+    );
+}
+
+#[test]
+fn clean_stdout_output_is_unchanged() {
+    let result = run(
+        ["clean", "--stdout", "--platform", "posix"],
+        context("first::second:first", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "first:second\n");
+}
+
+#[test]
+fn clean_export_outputs_shell_snippets() {
+    for (shell, expected_stdout) in [
+        ("bash", "export PATH='first:second'\n"),
+        ("zsh", "export PATH='first:second'\n"),
+        ("fish", "set -gx PATH 'first' 'second'\n"),
+        ("pwsh", "$env:Path = 'first:second'\n"),
+    ] {
+        let result = run(
+            ["clean", "--export", "--shell", shell, "--platform", "posix"],
+            context("first::second:first", None),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert_eq!(result.stdout, expected_stdout);
+    }
+}
+
+#[test]
+fn clean_export_quotes_posix_shell_paths() {
+    let result = run(
+        [
+            "clean",
+            "--export",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+        ],
+        context("dir one:weird'quote:back\\slash", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(
+        result.stdout,
+        "export PATH='dir one:weird'\\''quote:back\\slash'\n"
+    );
+}
+
+#[test]
+fn clean_export_quotes_fish_paths() {
+    let result = run(
+        [
+            "clean",
+            "--export",
+            "--shell",
+            "fish",
+            "--platform",
+            "posix",
+        ],
+        context("dir one:weird'quote:back\\slash", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(
+        result.stdout,
+        "set -gx PATH 'dir one' 'weird\\'quote' 'back\\\\slash'\n"
+    );
+}
+
+#[test]
+fn clean_export_requires_shell() {
+    let result = run(["clean", "--export"], context("", None));
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(result.stderr, "patholog: clean --export requires --shell\n");
+}
+
+#[test]
+fn clean_shell_requires_export() {
+    let result = run(["clean", "--shell", "bash"], context("", None));
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(result.stderr, "patholog: clean --shell requires --export\n");
+}
+
+#[test]
+fn clean_rejects_conflicting_output_modes() {
+    let result = run(
+        ["clean", "--stdout", "--export", "--shell", "bash"],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(
+        result.stderr,
+        "patholog: clean output modes --stdout and --export are mutually exclusive\n"
+    );
+}
+
+#[test]
+fn completions_outputs_scripts_for_supported_shells() {
+    for shell in ["bash", "fish", "pwsh", "zsh"] {
+        let result = run(["completions", shell], context("", None));
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(result.stdout.contains("clean"));
+        assert!(result.stdout.contains("completions"));
+    }
 }
 
 #[test]
@@ -114,7 +229,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.2.0\n");
+    assert_eq!(result.stdout, "patholog 0.3.0\n");
     assert_eq!(result.stderr, "");
 }
 

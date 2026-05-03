@@ -1,8 +1,10 @@
 use std::path::Path;
 
-use crate::clean::clean_path;
+use clap::CommandFactory;
+
+use crate::clean::{clean_export, clean_path};
 use crate::doctor::{diagnose_command_path, diagnose_path};
-use crate::model::{ExitCode, PlatformMode};
+use crate::model::{ExitCode, PlatformMode, ShellKind};
 use crate::output::human::{
     format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
 };
@@ -16,8 +18,8 @@ use crate::resolve::resolve_command;
 
 use super::fail_on::parse_fail_on;
 use super::types::{
-    CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions, DoctorOptions,
-    ResolutionOptions, ScanOptions,
+    CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions, CompletionOptions,
+    DoctorOptions, ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
@@ -28,6 +30,7 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
         Command::Conflicts(options) => run_conflicts(options, context),
         Command::Clean(options) => run_clean(options, context),
         Command::Scan(options) => run_scan(options, context),
+        Command::Completions(options) => run_completions(options),
     }
 }
 
@@ -130,8 +133,28 @@ fn run_conflicts(options: ResolutionOptions, context: &CommandContext) -> CliRes
 }
 
 fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
-    if !options.stdout {
-        return CliResult::error("clean requires --stdout");
+    if options.stdout && options.export {
+        return CliResult::error("clean output modes --stdout and --export are mutually exclusive");
+    }
+    if !options.export && options.shell.is_some() {
+        return CliResult::error("clean --shell requires --export");
+    }
+    if !options.stdout && !options.export {
+        return CliResult::error("clean requires --stdout or --export");
+    }
+    if options.export {
+        let Some(shell) = options.shell else {
+            return CliResult::error("clean --export requires --shell");
+        };
+        return CliResult::success(format!(
+            "{}\n",
+            clean_export(
+                &context.path_value,
+                options.platform,
+                context.pathext.as_deref(),
+                shell,
+            )
+        ));
     }
     CliResult::success(format!(
         "{}\n",
@@ -141,6 +164,30 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
             context.pathext.as_deref()
         )
     ))
+}
+
+fn run_completions(options: CompletionOptions) -> CliResult {
+    let mut command = Cli::command();
+    let mut stdout = Vec::new();
+    clap_complete::generate(
+        completion_shell(options.shell),
+        &mut command,
+        "patholog",
+        &mut stdout,
+    );
+    match String::from_utf8(stdout) {
+        Ok(stdout) => CliResult::success(stdout),
+        Err(error) => CliResult::error(error.to_string()),
+    }
+}
+
+fn completion_shell(shell: ShellKind) -> clap_complete::Shell {
+    match shell {
+        ShellKind::Bash => clap_complete::Shell::Bash,
+        ShellKind::Fish => clap_complete::Shell::Fish,
+        ShellKind::Pwsh => clap_complete::Shell::PowerShell,
+        ShellKind::Zsh => clap_complete::Shell::Zsh,
+    }
 }
 
 fn run_scan(options: ScanOptions, context: &CommandContext) -> CliResult {

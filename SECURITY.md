@@ -8,7 +8,7 @@
 
 ## Scope
 
-`patholog` is a local CLI for PATH diagnostics. In v0.1 it is intentionally read-only, except for writing output to stdout and stderr.
+`patholog` is a local CLI for PATH diagnostics. Current v0.x commands are intentionally read-only, except for writing output to stdout and stderr.
 
 Please report issues that could affect confidentiality, integrity, or availability, including:
 

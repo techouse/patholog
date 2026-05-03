@@ -21,7 +21,7 @@ pub(crate) mod resolve;
 pub mod fuzzing {
     use crate::clean;
     use crate::doctor;
-    use crate::model::{DoctorReport, PathEntry, PlatformMode};
+    use crate::model::{DoctorReport, PathEntry, PlatformMode, ShellKind};
     use crate::output::json;
     use crate::path_env;
 
@@ -33,6 +33,17 @@ pub mod fuzzing {
         pathext: Option<&str>,
     ) -> String {
         clean::clean_path(path_value, platform_mode, pathext)
+    }
+
+    /// Runs PATH export formatting with injected platform and shell rules.
+    #[must_use]
+    pub fn clean_export(
+        path_value: &str,
+        platform_mode: PlatformMode,
+        pathext: Option<&str>,
+        shell: ShellKind,
+    ) -> String {
+        clean::clean_export(path_value, platform_mode, pathext, shell)
     }
 
     /// Parses a PATH value with injected platform rules.
