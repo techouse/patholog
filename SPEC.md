@@ -75,6 +75,28 @@ Still post-v0.2 unless deliberately promoted:
 
 ---
 
+## 1.3 Safe Repair Output Milestone (v0.3)
+
+v0.3 adds shell-ready repair output while preserving the read-only safety model. It may generate shell snippets and
+completion scripts on stdout, but it must not install, source, or edit anything.
+
+v0.3 safe-output commands and flags:
+
+```bash
+patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows]
+patholog completions zsh|bash|fish|pwsh
+```
+
+v0.3 still defers:
+
+* automatic shell profile editing
+* `apply`
+* inode or canonical-file duplicate analysis
+* long-running `watch`
+* package-manager install hints
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -206,6 +228,17 @@ patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
 ```
 
 `scan --home` exists for deterministic inspection of an alternate home directory and must remain read-only.
+
+---
+
+## 4.2 v0.3 Safe Repair Output Additions
+
+```bash
+patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows]
+patholog completions zsh|bash|fish|pwsh
+```
+
+`clean --export` and `completions` write generated text to stdout only.
 
 ---
 
@@ -423,7 +456,11 @@ Produces a cleaned PATH representation.
 
   * print raw PATH string suitable for export
 
-`--export` is a post-parity feature.
+* `--export --shell zsh|bash|fish|pwsh`
+
+  * print a shell-ready PATH assignment snippet
+  * require an explicit shell to keep output deterministic
+  * do not edit shell profiles or completion directories
 
 ### Example
 
@@ -437,6 +474,16 @@ Output:
 /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/k/.cargo/bin
 ```
 
+```bash
+patholog clean --export --shell zsh
+```
+
+Output:
+
+```text
+export PATH='/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/k/.cargo/bin'
+```
+
 Exit code:
 
 * `0` on success
@@ -444,7 +491,28 @@ Exit code:
 
 ---
 
-## 5.6 `scan`
+## 5.6 `completions`
+
+```bash
+patholog completions zsh
+```
+
+Generates shell completion scripts to stdout for `zsh`, `bash`, `fish`, or `pwsh`.
+
+### Behaviour
+
+* write completion script text to stdout
+* do not install generated files
+* do not edit shell startup profiles
+
+Exit code:
+
+* `0` on success
+* `1` on runtime or usage error
+
+---
+
+## 5.7 `scan`
 
 ```bash
 patholog scan
@@ -477,7 +545,7 @@ Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`
 
 ### Read-only by default
 
-All commands in v0.1 and v0.2 must be read-only except for printing proposed cleaned output.
+All commands in v0.1 through v0.3 must be read-only except for printing proposed cleaned output.
 
 ### No automatic mutation
 
@@ -836,7 +904,7 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1/v0.2
+## 15. Explicit Non-Goals for v0.1 through v0.3
 
 Do not implement yet:
 
@@ -853,12 +921,11 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible v0.3+ features:
+Possible post-v0.3 features:
 
 * `apply --shell zsh|bash|pwsh`
 * `why-not <command>` with install hints
 * `watch` to detect PATH drift
-* shell completion generation
 * machine-readable health score
 
 ---

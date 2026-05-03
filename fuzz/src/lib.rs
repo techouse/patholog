@@ -20,6 +20,8 @@ struct PathCase {
     #[serde(default)]
     json: bool,
     command_mode: Option<String>,
+    #[serde(default)]
+    shell: String,
 }
 
 pub fn run_path_clean_bytes(data: &[u8]) {
@@ -62,6 +64,7 @@ pub fn run_path_parse_doctor_bytes(data: &[u8]) {
 pub fn run_cli_read_only_bytes(data: &[u8]) {
     let case = path_case_from_input(data);
     let platform = platform_arg(&case.platform);
+    let shell = shell_arg(&case.shell);
     let context = CommandContext {
         path_value: case.path,
         pathext: case.pathext,
@@ -70,7 +73,7 @@ pub fn run_cli_read_only_bytes(data: &[u8]) {
         user_profile_dir: None,
     };
 
-    for args in cli_args(&case.command_mode, platform, case.json) {
+    for args in cli_args(&case.command_mode, platform, shell, case.json) {
         let result = run(args, context.clone());
         assert!(result.stdout.len() <= MAX_OUTPUT_LEN);
         assert!(result.stderr.len() <= MAX_OUTPUT_LEN);
@@ -84,6 +87,7 @@ fn path_case_from_input(data: &[u8]) -> PathCase {
         pathext: None,
         json: false,
         command_mode: None,
+        shell: "bash".to_owned(),
     });
     case.path = truncate_string(case.path, MAX_INPUT_LEN);
     if let Some(pathext) = case.pathext.take() {
@@ -112,6 +116,15 @@ fn platform_arg(value: &str) -> &'static str {
         "auto" => "auto",
         "windows" => "windows",
         _ => "posix",
+    }
+}
+
+fn shell_arg(value: &str) -> &'static str {
+    match value.to_ascii_lowercase().as_str() {
+        "fish" => "fish",
+        "pwsh" | "powershell" => "pwsh",
+        "zsh" => "zsh",
+        _ => "bash",
     }
 }
 
@@ -146,15 +159,24 @@ fn assert_cleaned_entries_preserve_order(
     }
 }
 
-fn cli_args(command_mode: &Option<String>, platform: &str, json: bool) -> Vec<Vec<String>> {
+fn cli_args(
+    command_mode: &Option<String>,
+    platform: &str,
+    shell: &str,
+    json: bool,
+) -> Vec<Vec<String>> {
     match command_mode.as_deref() {
         Some("print") => vec![print_args(platform, json)],
         Some("doctor") => vec![doctor_args(platform, json)],
         Some("clean") => vec![clean_args(platform)],
+        Some("clean_export") => vec![clean_export_args(platform, shell)],
+        Some("completions") => vec![completions_args(shell)],
         _ => vec![
             print_args(platform, json),
             doctor_args(platform, json),
             clean_args(platform),
+            clean_export_args(platform, shell),
+            completions_args(shell),
         ],
     }
 }
@@ -190,6 +212,21 @@ fn clean_args(platform: &str) -> Vec<String> {
         "--platform".to_owned(),
         platform.to_owned(),
     ]
+}
+
+fn clean_export_args(platform: &str, shell: &str) -> Vec<String> {
+    vec![
+        "clean".to_owned(),
+        "--export".to_owned(),
+        "--shell".to_owned(),
+        shell.to_owned(),
+        "--platform".to_owned(),
+        platform.to_owned(),
+    ]
+}
+
+fn completions_args(shell: &str) -> Vec<String> {
+    vec!["completions".to_owned(), shell.to_owned()]
 }
 
 fn truncate_string(mut value: String, max_len: usize) -> String {

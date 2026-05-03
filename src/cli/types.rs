@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::model::{ExitCode, PlatformMode};
+use crate::model::{ExitCode, PlatformMode, ShellKind};
 
 /// Runtime inputs injected into the CLI.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -91,6 +91,7 @@ pub(super) enum Command {
     Conflicts(ResolutionOptions),
     Clean(CleanOptions),
     Scan(ScanOptions),
+    Completions(CompletionOptions),
 }
 
 #[derive(Args)]
@@ -124,6 +125,10 @@ pub(super) struct CleanOptions {
     pub(super) platform: PlatformMode,
     #[arg(long)]
     pub(super) stdout: bool,
+    #[arg(long)]
+    pub(super) export: bool,
+    #[arg(long, value_enum)]
+    pub(super) shell: Option<ShellKind>,
 }
 
 #[derive(Args)]
@@ -132,4 +137,10 @@ pub(super) struct ScanOptions {
     pub(super) common: CommonOptions,
     #[arg(long, value_name = "DIR")]
     pub(super) home: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub(super) struct CompletionOptions {
+    #[arg(value_enum)]
+    pub(super) shell: ShellKind,
 }

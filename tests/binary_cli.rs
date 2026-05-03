@@ -8,7 +8,7 @@ fn binary_wrapper_writes_stdout_and_exits_successfully() {
         .arg("--version")
         .assert()
         .success()
-        .stdout("patholog 0.2.0\n");
+        .stdout("patholog 0.3.0\n");
 }
 
 #[test]
@@ -19,5 +19,5 @@ fn binary_wrapper_writes_stderr_and_preserves_exit_code() {
         .arg("clean")
         .assert()
         .code(1)
-        .stderr("patholog: clean requires --stdout\n");
+        .stderr("patholog: clean requires --stdout or --export\n");
 }

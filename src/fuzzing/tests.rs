@@ -1,6 +1,6 @@
-use crate::model::{IssueKind, PlatformMode};
+use crate::model::{IssueKind, PlatformMode, ShellKind};
 
-use super::{clean_path, diagnose_path, doctor_json, parse_path, print_json};
+use super::{clean_export, clean_path, diagnose_path, doctor_json, parse_path, print_json};
 
 #[test]
 fn fuzzing_wrappers_delegate_to_read_only_behaviors() {
@@ -8,6 +8,10 @@ fn fuzzing_wrappers_delegate_to_read_only_behaviors() {
     let report = diagnose_path(".:.", PlatformMode::Posix, None);
 
     assert_eq!(clean_path(".:.", PlatformMode::Posix, None), ".");
+    assert_eq!(
+        clean_export(".:.", PlatformMode::Posix, None, ShellKind::Bash),
+        "export PATH='.'"
+    );
     assert_eq!(entries.len(), 2);
     assert!(
         report
