@@ -90,7 +90,28 @@ patholog completions zsh|bash|fish|pwsh
 v0.3 still defers:
 
 * automatic shell profile editing
-* `apply`
+* mutating `apply`
+* inode or canonical-file duplicate analysis
+* long-running `watch`
+* package-manager install hints
+
+---
+
+## 1.4 Apply Dry-Run Milestone (v0.4)
+
+v0.4 plans shell profile repairs without writing files. It defines the managed-block contract for a future mutating
+`apply`, but every v0.4 apply path is read-only.
+
+v0.4 safe planning command:
+
+```bash
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>]
+```
+
+v0.4 still defers:
+
+* automatic shell profile editing
+* mutating `apply`
 * inode or canonical-file duplicate analysis
 * long-running `watch`
 * package-manager install hints
@@ -239,6 +260,16 @@ patholog completions zsh|bash|fish|pwsh
 ```
 
 `clean --export` and `completions` write generated text to stdout only.
+
+---
+
+## 4.3 v0.4 Apply Dry-Run Addition
+
+```bash
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>]
+```
+
+`apply --dry-run` writes the planned profile action to stdout only.
 
 ---
 
@@ -541,11 +572,43 @@ Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`
 
 ---
 
+## 5.8 `apply`
+
+```bash
+patholog apply --dry-run --shell zsh
+```
+
+Plans a future shell profile edit using a patholog-managed block. v0.4 requires `--dry-run` and never writes files.
+
+### Behaviour
+
+* require `--dry-run`
+* require explicit `--shell zsh|bash|fish|pwsh`
+* choose an interactive profile by default
+* allow `--home <dir>` for deterministic default target selection
+* allow `--profile <file>` to override the target profile
+* report `create_profile`, `append_block`, or `replace_block`
+* reject non-file, unreadable, malformed-block, or duplicate-block profiles
+
+Managed block markers:
+
+```text
+# >>> patholog PATH >>>
+# <<< patholog PATH <<<
+```
+
+Exit code:
+
+* `0` on successful dry-run planning
+* `1` on usage, target-profile, or managed-block error
+
+---
+
 ## 6. v0.1 Safety Model
 
 ### Read-only by default
 
-All commands in v0.1 through v0.3 must be read-only except for printing proposed cleaned output.
+All commands in v0.1 through v0.4 must be read-only except for printing proposed cleaned output and repair plans.
 
 ### No automatic mutation
 
@@ -904,11 +967,12 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.3
+## 15. Explicit Non-Goals for v0.1 through v0.4
 
 Do not implement yet:
 
 * automatic shell profile editing
+* mutating `apply`
 * PATH generation from declarative config
 * daemon/background watcher
 * TUI
@@ -921,9 +985,9 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.3 features:
+Possible post-v0.4 features:
 
-* `apply --shell zsh|bash|pwsh`
+* mutating `apply --shell zsh|bash|fish|pwsh`
 * `why-not <command>` with install hints
 * `watch` to detect PATH drift
 * machine-readable health score

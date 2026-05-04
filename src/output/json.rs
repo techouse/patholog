@@ -1,8 +1,8 @@
 use serde_json::{Value, json};
 
 use crate::model::{
-    Diagnostic, DoctorReport, PathEntry, PathMutation, ResolutionCandidate, ResolutionReport,
-    ShellProfile, ShellProfileScanReport,
+    ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation, ResolutionCandidate,
+    ResolutionReport, ShellProfile, ShellProfileScanReport,
 };
 
 pub(crate) fn dumps_json(value: &Value) -> Result<String, serde_json::Error> {
@@ -46,6 +46,18 @@ pub(crate) fn shell_profile_scan_to_json(report: &ShellProfileScanReport) -> Val
     json!({
         "home": report.home,
         "profiles": report.profiles.iter().map(shell_profile_to_json).collect::<Vec<_>>(),
+    })
+}
+
+pub(crate) fn apply_plan_to_json(plan: &ApplyPlan) -> Value {
+    json!({
+        "shell": plan.shell.as_str(),
+        "profile_path": plan.profile_path,
+        "action": plan.action.as_str(),
+        "existing_block": plan.existing_block,
+        "planned_block": plan.planned_block,
+        "cleaned_path": plan.cleaned_path,
+        "would_write": plan.would_write,
     })
 }
 

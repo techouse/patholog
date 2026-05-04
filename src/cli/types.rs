@@ -90,6 +90,7 @@ pub(super) enum Command {
     Why(ResolutionOptions),
     Conflicts(ResolutionOptions),
     Clean(CleanOptions),
+    Apply(ApplyOptions),
     Scan(ScanOptions),
     Completions(CompletionOptions),
 }
@@ -137,6 +138,20 @@ pub(super) struct ScanOptions {
     pub(super) common: CommonOptions,
     #[arg(long, value_name = "DIR")]
     pub(super) home: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub(super) struct ApplyOptions {
+    #[command(flatten)]
+    pub(super) common: CommonOptions,
+    #[arg(long)]
+    pub(super) dry_run: bool,
+    #[arg(long, value_enum)]
+    pub(super) shell: Option<ShellKind>,
+    #[arg(long, value_name = "DIR")]
+    pub(super) home: Option<PathBuf>,
+    #[arg(long, value_name = "FILE")]
+    pub(super) profile: Option<PathBuf>,
 }
 
 #[derive(Args)]

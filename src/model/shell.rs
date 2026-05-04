@@ -12,3 +12,16 @@ pub enum ShellKind {
     /// Z shell syntax.
     Zsh,
 }
+
+impl ShellKind {
+    /// Stable shell string for human and JSON output.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Bash => "bash",
+            Self::Fish => "fish",
+            Self::Pwsh => "pwsh",
+            Self::Zsh => "zsh",
+        }
+    }
+}

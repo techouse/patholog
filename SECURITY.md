@@ -13,6 +13,7 @@
 Please report issues that could affect confidentiality, integrity, or availability, including:
 
 - unexpected file writes or shell profile mutation
+- misleading `apply --dry-run` profile repair plans
 - command resolution behavior that could mislead users into executing the wrong binary
 - output escaping or injection issues in human or JSON output
 - crashes or resource exhaustion from untrusted PATH/PATHEXT input

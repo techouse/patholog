@@ -2,14 +2,17 @@ use std::path::Path;
 
 use clap::CommandFactory;
 
+use crate::apply::{ApplyPlanOptions, plan_apply};
 use crate::clean::{clean_export, clean_path};
 use crate::doctor::{diagnose_command_path, diagnose_path};
 use crate::model::{ExitCode, PlatformMode, ShellKind};
 use crate::output::human::{
-    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
+    format_apply_plan, format_conflicts, format_doctor, format_print, format_shell_profile_scan,
+    format_why,
 };
 use crate::output::json::{
-    doctor_to_json, dumps_json, entries_to_json, resolution_to_json, shell_profile_scan_to_json,
+    apply_plan_to_json, doctor_to_json, dumps_json, entries_to_json, resolution_to_json,
+    shell_profile_scan_to_json,
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
@@ -18,8 +21,8 @@ use crate::resolve::resolve_command;
 
 use super::fail_on::parse_fail_on;
 use super::types::{
-    CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions, CompletionOptions,
-    DoctorOptions, ResolutionOptions, ScanOptions,
+    ApplyOptions, CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions,
+    CompletionOptions, DoctorOptions, ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
@@ -29,6 +32,7 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
         Command::Why(options) => run_why(options, context),
         Command::Conflicts(options) => run_conflicts(options, context),
         Command::Clean(options) => run_clean(options, context),
+        Command::Apply(options) => run_apply(options, context),
         Command::Scan(options) => run_scan(options, context),
         Command::Completions(options) => run_completions(options),
     }
@@ -178,6 +182,54 @@ fn run_completions(options: CompletionOptions) -> CliResult {
     match String::from_utf8(stdout) {
         Ok(stdout) => CliResult::success(stdout),
         Err(error) => CliResult::error(error.to_string()),
+    }
+}
+
+fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
+    if !options.dry_run {
+        return CliResult::error("apply requires --dry-run in v0.4.0");
+    }
+    let Some(shell) = options.shell else {
+        return CliResult::error("apply requires --shell");
+    };
+
+    let home_dir = options
+        .home
+        .as_deref()
+        .or_else(|| apply_home_dir(options.common.platform, context));
+    let user_profile_dir = options
+        .home
+        .as_deref()
+        .or_else(|| apply_user_profile_dir(options.common.platform, context));
+    let plan = match plan_apply(&ApplyPlanOptions {
+        path_value: &context.path_value,
+        platform_mode: options.common.platform,
+        pathext: context.pathext.as_deref(),
+        shell,
+        home_dir,
+        user_profile_dir,
+        profile: options.profile.as_deref(),
+    }) {
+        Ok(plan) => plan,
+        Err(message) => return CliResult::error(message),
+    };
+    if options.common.json {
+        return json_result(apply_plan_to_json(&plan));
+    }
+    CliResult::success(format_apply_plan(&plan))
+}
+
+fn apply_home_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {
+    match resolve_platform_rules(platform_mode, None).mode {
+        PlatformMode::Windows => context.home_dir.as_deref(),
+        PlatformMode::Auto | PlatformMode::Posix => context.home_dir.as_deref(),
+    }
+}
+
+fn apply_user_profile_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {
+    match resolve_platform_rules(platform_mode, None).mode {
+        PlatformMode::Windows => context.user_profile_dir.as_deref(),
+        PlatformMode::Auto | PlatformMode::Posix => context.user_profile_dir.as_deref(),
     }
 }
 

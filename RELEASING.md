@@ -16,7 +16,8 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   git tag -a v0.3.0 -m "Release v0.3.0"
+   version="v0.4.0"
+   git tag -a "$version" -m "Release $version"
    ```
 
 5. Verify the tag points at the intended commit:
@@ -30,7 +31,7 @@ unless that is explicitly part of the release scope.
 
    ```sh
    git push origin main
-   git push origin v0.3.0
+   git push origin "$version"
    ```
 
 7. Confirm GitHub Actions pass on the pushed commit.

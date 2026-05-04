@@ -4,7 +4,7 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 [![Test](https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg)](https://github.com/techouse/patholog/actions/workflows/test.yml)
 
-`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, and prints cleaned PATH proposals. v0.1 is preserved as the Python-parity checkpoint; v0.2 adds read-only diagnostics, and v0.3 adds shell-ready repair output without mutating shell configuration.
+`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and plans safe profile repairs without mutating shell configuration.
 
 ## Quick Examples
 
@@ -16,6 +16,7 @@ patholog conflicts cargo
 patholog scan
 patholog clean --stdout
 patholog clean --export --shell zsh
+patholog apply --dry-run --shell zsh
 patholog completions zsh
 ```
 
@@ -42,6 +43,7 @@ patholog conflicts <command> [--json] [--platform auto|posix|windows]
 patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
 patholog clean --stdout [--platform auto|posix|windows]
 patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows]
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>]
 patholog completions zsh|bash|fish|pwsh
 ```
 
@@ -84,6 +86,13 @@ patholog clean --export --shell zsh
 patholog completions zsh
 ```
 
+`apply --dry-run` plans a future shell profile edit without writing files:
+
+```sh
+patholog apply --dry-run --shell zsh
+patholog apply --dry-run --shell zsh --json
+```
+
 ## Exit Codes
 
 - `0`: success
@@ -111,7 +120,7 @@ All commands are read-only except for writing output to stdout or stderr. `patho
 - PowerShell profiles
 - system environment configuration
 
-`clean --stdout`, `clean --export`, and `completions` only print generated text. Applying or installing that output is a manual step.
+`clean --stdout`, `clean --export`, `apply --dry-run`, and `completions` only print generated text. Applying or installing that output is a manual step.
 
 ## Development
 
