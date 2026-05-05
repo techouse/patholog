@@ -2,13 +2,15 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand};
 
-use crate::model::{ExitCode, PlatformMode, ShellKind};
+use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 
 /// Runtime inputs injected into the CLI.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CommandContext {
     /// PATH value to parse.
     pub path_value: String,
+    /// MANPATH value to parse.
+    pub manpath_value: String,
     /// PATHEXT value used for Windows lookup modeling.
     pub pathext: Option<String>,
     /// Current working directory used for empty PATH entries.
@@ -25,6 +27,7 @@ impl CommandContext {
     pub fn from_env() -> Self {
         Self {
             path_value: std::env::var("PATH").unwrap_or_default(),
+            manpath_value: std::env::var("MANPATH").unwrap_or_default(),
             pathext: std::env::var("PATHEXT").ok(),
             cwd: std::env::current_dir().unwrap_or_else(|_error| PathBuf::from(".")),
             home_dir: env_path("HOME"),
@@ -85,7 +88,7 @@ pub(super) struct Cli {
 
 #[derive(Subcommand)]
 pub(super) enum Command {
-    Print(CommonOptions),
+    Print(PrintOptions),
     Doctor(DoctorOptions),
     Why(ResolutionOptions),
     Conflicts(ResolutionOptions),
@@ -104,13 +107,27 @@ pub(super) struct CommonOptions {
 }
 
 #[derive(Args)]
+pub(super) struct PrintOptions {
+    #[command(flatten)]
+    pub(super) common: CommonOptions,
+    #[arg(long = "var", value_enum, default_value_t = PathVariable::Path)]
+    pub(super) variable: PathVariable,
+}
+
+#[derive(Args)]
 pub(super) struct DoctorOptions {
     #[command(flatten)]
     pub(super) common: CommonOptions,
+    #[arg(long = "var", value_enum, default_value_t = PathVariable::Path)]
+    pub(super) variable: PathVariable,
     #[arg(long, default_value = "", value_name = "KINDS")]
     pub(super) fail_on: String,
     #[arg(long, value_name = "COMMAND")]
     pub(super) command: Option<String>,
+    #[arg(long = "drop", value_name = "ENTRY")]
+    pub(super) drop_entries: Vec<String>,
+    #[arg(long = "preset", value_enum)]
+    pub(super) presets: Vec<PresetKind>,
 }
 
 #[derive(Args)]
@@ -124,12 +141,18 @@ pub(super) struct ResolutionOptions {
 pub(super) struct CleanOptions {
     #[arg(long, value_enum, default_value_t = PlatformMode::Auto)]
     pub(super) platform: PlatformMode,
+    #[arg(long = "var", value_enum, default_value_t = PathVariable::Path)]
+    pub(super) variable: PathVariable,
     #[arg(long)]
     pub(super) stdout: bool,
     #[arg(long)]
     pub(super) export: bool,
     #[arg(long, value_enum)]
     pub(super) shell: Option<ShellKind>,
+    #[arg(long = "drop", value_name = "ENTRY")]
+    pub(super) drop_entries: Vec<String>,
+    #[arg(long = "preset", value_enum)]
+    pub(super) presets: Vec<PresetKind>,
 }
 
 #[derive(Args)]
@@ -152,6 +175,10 @@ pub(super) struct ApplyOptions {
     pub(super) home: Option<PathBuf>,
     #[arg(long, value_name = "FILE")]
     pub(super) profile: Option<PathBuf>,
+    #[arg(long = "drop", value_name = "ENTRY")]
+    pub(super) drop_entries: Vec<String>,
+    #[arg(long = "preset", value_enum)]
+    pub(super) presets: Vec<PresetKind>,
 }
 
 #[derive(Args)]

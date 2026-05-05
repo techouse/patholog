@@ -1,8 +1,10 @@
-use super::{Diagnostic, PathEntry};
+use super::{Diagnostic, PathEntry, PathVariable};
 
-/// PATH health report.
+/// Path-like environment variable health report.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DoctorReport {
+    /// Path-like variable being diagnosed.
+    pub variable: PathVariable,
     /// Parsed PATH entries.
     pub entries: Vec<PathEntry>,
     /// Diagnostics emitted for the entries.

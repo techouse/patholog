@@ -28,6 +28,64 @@ fn clean_stdout_output_is_unchanged() {
 }
 
 #[test]
+fn clean_stdout_drops_unwanted_entries() {
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--drop",
+            "first",
+        ],
+        context("first::second:first:third", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "second:third\n");
+}
+
+#[test]
+fn clean_stdout_applies_repeated_fink_preset_once() {
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--preset",
+            "fink",
+            "--preset",
+            "fink",
+        ],
+        context("/usr/bin:/sw/bin:/sw/sbin:/sw/share/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "/usr/bin\n");
+}
+
+#[test]
+fn clean_stdout_combines_drop_and_preset_policy() {
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--drop",
+            "/custom/bin",
+            "--preset",
+            "fink",
+        ],
+        context("/custom/bin:/sw/bin:/usr/bin", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "/usr/bin\n");
+}
+
+#[test]
 fn clean_export_outputs_shell_snippets() {
     for (shell, expected_stdout) in [
         ("bash", "export PATH='first:second'\n"),
@@ -43,6 +101,29 @@ fn clean_export_outputs_shell_snippets() {
         assert_eq!(result.exit_code, ExitCode::Success);
         assert_eq!(result.stdout, expected_stdout);
     }
+}
+
+#[test]
+fn clean_export_outputs_manpath_shell_snippet() {
+    let result = run(
+        [
+            "clean",
+            "--export",
+            "--var",
+            "manpath",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+        ],
+        context_with_manpath("", "/usr/share/man::/opt/share/man:/usr/share/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(
+        result.stdout,
+        "export MANPATH='/usr/share/man:/opt/share/man'\n"
+    );
 }
 
 #[test]
@@ -135,7 +216,7 @@ fn apply_requires_dry_run() {
     assert_eq!(result.exit_code, ExitCode::GeneralError);
     assert_eq!(
         result.stderr,
-        "patholog: apply requires --dry-run in v0.4.0\n"
+        "patholog: apply requires --dry-run in v0.5.x\n"
     );
 }
 
@@ -315,6 +396,54 @@ fn apply_dry_run_reports_create_append_and_replace_actions() {
 }
 
 #[test]
+fn apply_dry_run_uses_drop_policy_in_cleaned_block() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("missing.profile");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+            "--drop",
+            "/a",
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Cleaned PATH:\n  /b"));
+    assert!(result.stdout.contains("export PATH='/b'"));
+}
+
+#[test]
+fn apply_dry_run_uses_fink_preset_drop_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("missing.profile");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+            "--preset",
+            "fink",
+        ],
+        context("/usr/bin:/sw/bin:/sw/sbin", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Cleaned PATH:\n  /usr/bin"));
+    assert!(result.stdout.contains("export PATH='/usr/bin'"));
+}
+
+#[test]
 fn apply_dry_run_json_includes_plan_fields() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let result = run(
@@ -337,6 +466,17 @@ fn apply_dry_run_json_includes_plan_fields() {
     assert!(result.stdout.contains("\"cleaned_path\": \"/a:/b\""));
     assert!(result.stdout.contains("\"existing_block\": null"));
     assert!(result.stdout.contains("\"would_write\": false"));
+}
+
+#[test]
+fn print_can_read_manpath() {
+    let result = run(
+        ["print", "--var", "manpath", "--platform", "posix"],
+        context_with_manpath("", "/usr/share/man:/opt/share/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "1  /usr/share/man\n2  /opt/share/man\n");
 }
 
 #[test]
@@ -443,6 +583,90 @@ fn doctor_fail_on_returns_diagnostics_found() {
 }
 
 #[test]
+fn doctor_reports_unwanted_entries_and_fail_on() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let keep = directory.path().join("keep");
+    let drop = directory.path().join("drop");
+    std::fs::create_dir(&keep).expect("create keep");
+    std::fs::create_dir(&drop).expect("create drop");
+
+    let result = run(
+        [
+            "doctor",
+            "--platform",
+            "posix",
+            "--drop",
+            drop.to_str().expect("utf-8 drop"),
+            "--fail-on=unwanted",
+        ],
+        context(&format!("{}:{}", drop.display(), keep.display()), None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::DiagnosticsFound);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains(&drop.display().to_string()));
+}
+
+#[test]
+fn doctor_var_manpath_reports_manpath_entries() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let man = directory.path().join("man");
+    std::fs::create_dir(&man).expect("create man");
+
+    let result = run(
+        ["doctor", "--var", "manpath", "--platform", "posix"],
+        context_with_manpath("", &format!("{}:{}", man.display(), man.display()), None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("MANPATH entries: 2"));
+    assert!(result.stdout.contains("Duplicates:"));
+}
+
+#[test]
+fn doctor_var_manpath_rejects_command_resolution() {
+    let result = run(
+        ["doctor", "--var", "manpath", "--command", "tool"],
+        context_with_manpath("", "/usr/share/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(
+        result.stderr,
+        "patholog: doctor --command only supports --var path\n"
+    );
+}
+
+#[test]
+fn doctor_fink_preset_reports_unwanted_entries() {
+    let result = run(
+        ["doctor", "--platform", "posix", "--preset", "fink"],
+        context("/usr/bin:/sw/bin:/sw/sbin", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains("/sw/bin"));
+    assert!(result.stdout.contains("/sw/sbin"));
+}
+
+#[test]
+fn doctor_ordering_presets_are_accepted() {
+    for preset in ["homebrew", "cargo", "pyenv"] {
+        let result = run(
+            ["doctor", "--platform", "posix", "--preset", preset],
+            context(
+                "/usr/bin:/opt/homebrew/bin:/Users/me/.cargo/bin:/Users/me/.pyenv/shims",
+                None,
+            ),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(result.stdout.contains("Ordering warnings:"));
+    }
+}
+
+#[test]
 fn doctor_command_reports_shadowed_candidates() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let first = directory.path().join("first");
@@ -529,7 +753,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.4.0\n");
+    assert_eq!(result.stdout, "patholog 0.5.2\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -566,7 +790,7 @@ fn invalid_fail_on_returns_runtime_error() {
 fn parse_fail_on_trims_ignores_empty_and_deduplicates() {
     assert_eq!(
         parse_fail_on(
-            " duplicate, ,not_directory,unreadable,suspicious_order,shadowed_command,duplicate ",
+            " duplicate, ,not_directory,unreadable,suspicious_order,shadowed_command,unwanted,duplicate ",
         )
         .expect("parse fail-on"),
         [
@@ -574,7 +798,8 @@ fn parse_fail_on_trims_ignores_empty_and_deduplicates() {
             IssueKind::NotDirectory,
             IssueKind::Unreadable,
             IssueKind::SuspiciousOrder,
-            IssueKind::ShadowedCommand
+            IssueKind::ShadowedCommand,
+            IssueKind::Unwanted
         ]
     );
 }
@@ -590,9 +815,25 @@ fn context(path_value: &str, pathext: Option<&str>) -> CommandContext {
     context_with_cwd(path_value, pathext, Path::new("."))
 }
 
+fn context_with_manpath(
+    path_value: &str,
+    manpath_value: &str,
+    pathext: Option<&str>,
+) -> CommandContext {
+    CommandContext {
+        path_value: path_value.to_owned(),
+        manpath_value: manpath_value.to_owned(),
+        pathext: pathext.map(str::to_owned),
+        cwd: Path::new(".").to_path_buf(),
+        home_dir: None,
+        user_profile_dir: None,
+    }
+}
+
 fn context_with_cwd(path_value: &str, pathext: Option<&str>, cwd: &Path) -> CommandContext {
     CommandContext {
         path_value: path_value.to_owned(),
+        manpath_value: String::new(),
         pathext: pathext.map(str::to_owned),
         cwd: cwd.to_path_buf(),
         home_dir: None,
@@ -603,6 +844,7 @@ fn context_with_cwd(path_value: &str, pathext: Option<&str>, cwd: &Path) -> Comm
 fn context_with_home(path_value: &str, pathext: Option<&str>, home: &Path) -> CommandContext {
     CommandContext {
         path_value: path_value.to_owned(),
+        manpath_value: String::new(),
         pathext: pathext.map(str::to_owned),
         cwd: Path::new(".").to_path_buf(),
         home_dir: Some(home.to_path_buf()),
@@ -618,6 +860,7 @@ fn context_with_home_dirs(
 ) -> CommandContext {
     CommandContext {
         path_value: path_value.to_owned(),
+        manpath_value: String::new(),
         pathext: pathext.map(str::to_owned),
         cwd: Path::new(".").to_path_buf(),
         home_dir: Some(home.to_path_buf()),

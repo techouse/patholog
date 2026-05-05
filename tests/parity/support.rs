@@ -11,6 +11,7 @@ pub(crate) fn assert_success_with_golden(exit_code: ExitCode, stderr: &str) {
 pub(crate) fn context(path_value: &str, pathext: Option<&str>, cwd: &Path) -> CommandContext {
     CommandContext {
         path_value: path_value.to_owned(),
+        manpath_value: String::new(),
         pathext: pathext.map(str::to_owned),
         cwd: cwd.to_path_buf(),
         home_dir: Some(cwd.to_path_buf()),

@@ -3,9 +3,9 @@ use std::path::Path;
 use clap::CommandFactory;
 
 use crate::apply::{ApplyPlanOptions, plan_apply};
-use crate::clean::{clean_export, clean_path};
-use crate::doctor::{diagnose_command_path, diagnose_path};
-use crate::model::{ExitCode, PlatformMode, ShellKind};
+use crate::clean::{clean_export_with_policy, clean_path_with_policy};
+use crate::doctor::{diagnose_command_path_with_policy, diagnose_path_with_policy};
+use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 use crate::output::human::{
     format_apply_plan, format_conflicts, format_doctor, format_print, format_shell_profile_scan,
     format_why,
@@ -16,13 +16,14 @@ use crate::output::json::{
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
+use crate::policy::PathPolicy;
 use crate::profile_scan::scan_shell_profiles;
 use crate::resolve::resolve_command;
 
 use super::fail_on::parse_fail_on;
 use super::types::{
-    ApplyOptions, CleanOptions, Cli, CliResult, Command, CommandContext, CommonOptions,
-    CompletionOptions, DoctorOptions, ResolutionOptions, ScanOptions,
+    ApplyOptions, CleanOptions, Cli, CliResult, Command, CommandContext, CompletionOptions,
+    DoctorOptions, PrintOptions, ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
@@ -38,32 +39,39 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
     }
 }
 
-fn run_print(options: CommonOptions, context: &CommandContext) -> CliResult {
+fn run_print(options: PrintOptions, context: &CommandContext) -> CliResult {
     let entries = parse_path(
-        &context.path_value,
-        options.platform,
+        variable_value(context, options.variable),
+        options.common.platform,
         context.pathext.as_deref(),
     );
-    if options.json {
+    if options.common.json {
         return json_result(entries_to_json(&entries));
     }
     CliResult::success(format_print(&entries))
 }
 
 fn run_doctor(options: DoctorOptions, context: &CommandContext) -> CliResult {
+    if options.command.is_some() && options.variable != PathVariable::Path {
+        return CliResult::error("doctor --command only supports --var path");
+    }
+    let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
     let report = if let Some(command) = options.command.as_deref() {
-        diagnose_command_path(
+        diagnose_command_path_with_policy(
             &context.path_value,
             command,
             options.common.platform,
             context.pathext.as_deref(),
             &context.cwd,
+            &policy,
         )
     } else {
-        diagnose_path(
-            &context.path_value,
+        diagnose_path_with_policy(
+            variable_value(context, options.variable),
             options.common.platform,
             context.pathext.as_deref(),
+            options.variable,
+            &policy,
         )
     };
     let selected_issue_kinds = match parse_fail_on(&options.fail_on) {
@@ -150,22 +158,27 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
         let Some(shell) = options.shell else {
             return CliResult::error("clean --export requires --shell");
         };
+        let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
         return CliResult::success(format!(
             "{}\n",
-            clean_export(
-                &context.path_value,
+            clean_export_with_policy(
+                variable_value(context, options.variable),
                 options.platform,
                 context.pathext.as_deref(),
                 shell,
+                options.variable,
+                &policy,
             )
         ));
     }
+    let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
     CliResult::success(format!(
         "{}\n",
-        clean_path(
-            &context.path_value,
+        clean_path_with_policy(
+            variable_value(context, options.variable),
             options.platform,
-            context.pathext.as_deref()
+            context.pathext.as_deref(),
+            &policy,
         )
     ))
 }
@@ -187,11 +200,12 @@ fn run_completions(options: CompletionOptions) -> CliResult {
 
 fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
     if !options.dry_run {
-        return CliResult::error("apply requires --dry-run in v0.4.0");
+        return CliResult::error("apply requires --dry-run in v0.5.x");
     }
     let Some(shell) = options.shell else {
         return CliResult::error("apply requires --shell");
     };
+    let policy = path_policy(&options.drop_entries, &options.presets, PathVariable::Path);
 
     let home_dir = options
         .home
@@ -209,6 +223,7 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         home_dir,
         user_profile_dir,
         profile: options.profile.as_deref(),
+        policy,
     }) {
         Ok(plan) => plan,
         Err(message) => return CliResult::error(message),
@@ -217,6 +232,21 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         return json_result(apply_plan_to_json(&plan));
     }
     CliResult::success(format_apply_plan(&plan))
+}
+
+fn variable_value(context: &CommandContext, variable: PathVariable) -> &str {
+    match variable {
+        PathVariable::Path => &context.path_value,
+        PathVariable::Manpath => &context.manpath_value,
+    }
+}
+
+fn path_policy(
+    drop_entries: &[String],
+    presets: &[PresetKind],
+    variable: PathVariable,
+) -> PathPolicy {
+    PathPolicy::new(drop_entries, presets, variable)
 }
 
 fn apply_home_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {

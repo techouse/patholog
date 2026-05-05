@@ -17,4 +17,5 @@ fn issue_kinds_match_cli_and_json_contract() {
     assert_eq!(IssueKind::Unreadable.as_str(), "unreadable");
     assert_eq!(IssueKind::SuspiciousOrder.as_str(), "suspicious_order");
     assert_eq!(IssueKind::ShadowedCommand.as_str(), "shadowed_command");
+    assert_eq!(IssueKind::Unwanted.as_str(), "unwanted");
 }

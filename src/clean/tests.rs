@@ -1,7 +1,9 @@
-use crate::model::{PlatformMode, ShellKind};
+use crate::model::{PathVariable, PlatformMode, PresetKind, ShellKind};
+use crate::policy::PathPolicy;
 
 use super::{
-    clean_export, clean_path, fish_single_quote, posix_single_quote, powershell_single_quote,
+    clean_export, clean_export_with_policy, clean_path, clean_path_with_policy, fish_single_quote,
+    posix_single_quote, powershell_single_quote,
 };
 
 #[test]
@@ -41,6 +43,36 @@ fn clean_path_keeps_missing_and_non_directory_entries() {
             None,
         ),
         format!("{}:{}", missing.display(), file_path.display())
+    );
+}
+
+#[test]
+fn clean_path_drops_unwanted_entries_before_deduping() {
+    let policy = PathPolicy::new(&["first".to_owned()], &[], PathVariable::Path);
+
+    assert_eq!(
+        clean_path_with_policy(
+            "first:second:first:third",
+            PlatformMode::Posix,
+            None,
+            &policy,
+        ),
+        "second:third"
+    );
+}
+
+#[test]
+fn clean_path_applies_fink_preset_drop_rules() {
+    let policy = PathPolicy::new(&[], &[PresetKind::Fink], PathVariable::Path);
+
+    assert_eq!(
+        clean_path_with_policy(
+            "/usr/bin:/sw/bin:/sw/sbin:/sw/share/man",
+            PlatformMode::Posix,
+            None,
+            &policy,
+        ),
+        "/usr/bin"
     );
 }
 
@@ -93,6 +125,43 @@ fn clean_export_formats_powershell_with_cleaned_raw_path() {
             ShellKind::Pwsh,
         ),
         r"$env:Path = 'C:\First;C:\Second'"
+    );
+}
+
+#[test]
+fn clean_export_formats_manpath_with_variable_name() {
+    assert_eq!(
+        clean_export_with_policy(
+            "/usr/share/man:/opt/share/man",
+            PlatformMode::Posix,
+            None,
+            ShellKind::Bash,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        "export MANPATH='/usr/share/man:/opt/share/man'"
+    );
+    assert_eq!(
+        clean_export_with_policy(
+            "/usr/share/man:/opt/share/man",
+            PlatformMode::Posix,
+            None,
+            ShellKind::Fish,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        "set -gx MANPATH '/usr/share/man' '/opt/share/man'"
+    );
+    assert_eq!(
+        clean_export_with_policy(
+            "/usr/share/man:/opt/share/man",
+            PlatformMode::Posix,
+            None,
+            ShellKind::Pwsh,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        "$env:MANPATH = '/usr/share/man:/opt/share/man'"
     );
 }
 

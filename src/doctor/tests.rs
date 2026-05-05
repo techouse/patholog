@@ -2,7 +2,7 @@ use crate::model::{IssueKind, PlatformMode};
 
 use std::path::Path;
 
-use super::{diagnose_command_path, diagnose_path};
+use super::{diagnose_command_path_with_policy, diagnose_path};
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
@@ -108,12 +108,13 @@ fn command_diagnostics_report_shadowed_candidates() {
     make_executable(&first.join("tool.exe"));
     make_executable(&second.join("tool.exe"));
 
-    let report = diagnose_command_path(
+    let report = diagnose_command_path_with_policy(
         &format!("{};{}", first.display(), second.display()),
         "tool",
         PlatformMode::Windows,
         None,
         directory.path(),
+        &crate::policy::PathPolicy::default(),
     );
 
     assert!(
@@ -133,12 +134,13 @@ fn command_diagnostics_ignore_same_path_entry_pathext_matches() {
     make_executable(&bin.join("tool.cmd"));
     make_executable(&bin.join("tool.exe"));
 
-    let report = diagnose_command_path(
+    let report = diagnose_command_path_with_policy(
         &bin.display().to_string(),
         "tool",
         PlatformMode::Windows,
         Some(".CMD;.EXE"),
         directory.path(),
+        &crate::policy::PathPolicy::default(),
     );
 
     assert!(

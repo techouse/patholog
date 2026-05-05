@@ -1,9 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::clean::{clean_export, clean_path};
-use crate::model::{ApplyAction, ApplyPlan, PlatformMode, ShellKind};
+use crate::clean::{clean_export_with_policy, clean_path_with_policy};
+use crate::model::{ApplyAction, ApplyPlan, PathVariable, PlatformMode, ShellKind};
 use crate::platform::resolve_platform_rules;
+use crate::policy::PathPolicy;
 
 pub(crate) const START_MARKER: &str = "# >>> patholog PATH >>>";
 pub(crate) const END_MARKER: &str = "# <<< patholog PATH <<<";
@@ -17,16 +18,24 @@ pub(crate) struct ApplyPlanOptions<'a> {
     pub(crate) home_dir: Option<&'a Path>,
     pub(crate) user_profile_dir: Option<&'a Path>,
     pub(crate) profile: Option<&'a Path>,
+    pub(crate) policy: PathPolicy,
 }
 
 pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, String> {
     let profile_path = target_profile(options)?;
-    let cleaned_path = clean_path(options.path_value, options.platform_mode, options.pathext);
-    let planned_block = managed_block(&clean_export(
+    let cleaned_path = clean_path_with_policy(
+        options.path_value,
+        options.platform_mode,
+        options.pathext,
+        &options.policy,
+    );
+    let planned_block = managed_block(&clean_export_with_policy(
         options.path_value,
         options.platform_mode,
         options.pathext,
         options.shell,
+        PathVariable::Path,
+        &options.policy,
     ));
 
     match fs::metadata(&profile_path) {
