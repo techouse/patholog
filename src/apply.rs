@@ -59,10 +59,7 @@ fn target_profile(options: &ApplyPlanOptions<'_>) -> Result<PathBuf, String> {
     }
 
     let Some(home) = default_home(options) else {
-        return Err(
-            "apply requires a home directory; set HOME or USERPROFILE, pass --home, or pass --profile"
-                .to_owned(),
-        );
+        return Err(missing_home_message(options).to_owned());
     };
 
     Ok(match options.shell {
@@ -74,9 +71,24 @@ fn target_profile(options: &ApplyPlanOptions<'_>) -> Result<PathBuf, String> {
 }
 
 fn default_home<'a>(options: &'a ApplyPlanOptions<'_>) -> Option<&'a Path> {
-    match resolve_platform_rules(options.platform_mode, None).mode {
-        PlatformMode::Windows => options.user_profile_dir.or(options.home_dir),
-        PlatformMode::Auto | PlatformMode::Posix => options.home_dir.or(options.user_profile_dir),
+    match (
+        options.shell,
+        resolve_platform_rules(options.platform_mode, None).mode,
+    ) {
+        (ShellKind::Pwsh, PlatformMode::Windows) => options.user_profile_dir,
+        _ => options.home_dir,
+    }
+}
+
+fn missing_home_message(options: &ApplyPlanOptions<'_>) -> &'static str {
+    match (
+        options.shell,
+        resolve_platform_rules(options.platform_mode, None).mode,
+    ) {
+        (ShellKind::Pwsh, PlatformMode::Windows) => {
+            "apply requires a home directory; set USERPROFILE, pass --home, or pass --profile"
+        }
+        _ => "apply requires a home directory; set HOME, pass --home, or pass --profile",
     }
 }
 

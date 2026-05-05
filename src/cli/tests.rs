@@ -211,6 +211,43 @@ fn apply_dry_run_windows_pwsh_uses_user_profile_dir() {
 }
 
 #[test]
+fn apply_dry_run_windows_posix_shells_use_home_dir() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let user_profile = directory.path().join("userprofile");
+
+    for (shell, expected_path) in [
+        ("bash", ".bashrc"),
+        ("fish", ".config/fish/config.fish"),
+        ("zsh", ".zshrc"),
+    ] {
+        let result = run(
+            [
+                "apply",
+                "--dry-run",
+                "--shell",
+                shell,
+                "--platform",
+                "windows",
+            ],
+            context_with_home_dirs(r"C:\A;C:\B", None, &home, &user_profile),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(
+            result
+                .stdout
+                .contains(&home.join(expected_path).display().to_string())
+        );
+        assert!(
+            !result
+                .stdout
+                .contains(&user_profile.join(expected_path).display().to_string())
+        );
+    }
+}
+
+#[test]
 fn apply_profile_overrides_home() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let home = directory.path().join("home");

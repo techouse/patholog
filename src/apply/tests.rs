@@ -65,6 +65,35 @@ fn plan_apply_uses_windows_user_profile_for_pwsh_windows_mode() {
 }
 
 #[test]
+fn plan_apply_uses_home_for_posix_shells_in_windows_mode() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let user_profile = directory.path().join("userprofile");
+
+    for (shell, expected_path) in [
+        (ShellKind::Bash, ".bashrc"),
+        (ShellKind::Fish, ".config/fish/config.fish"),
+        (ShellKind::Zsh, ".zshrc"),
+    ] {
+        let plan = plan_apply(&ApplyPlanOptions {
+            path_value: r"C:\One;C:\Two",
+            platform_mode: PlatformMode::Windows,
+            pathext: None,
+            shell,
+            home_dir: Some(&home),
+            user_profile_dir: Some(&user_profile),
+            profile: None,
+        })
+        .expect("plan apply");
+
+        assert_eq!(
+            plan.profile_path,
+            home.join(expected_path).display().to_string()
+        );
+    }
+}
+
+#[test]
 fn plan_apply_profile_override_does_not_require_home() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join("custom.profile");
