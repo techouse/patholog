@@ -7,6 +7,7 @@ const FINK_DROP_ENTRIES: &[&str] = &["/sw/bin", "/sw/sbin", "/sw/share/man"];
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct PathPolicy {
     drop_entries: Vec<String>,
+    ordering_presets: Vec<PresetKind>,
 }
 
 impl PathPolicy {
@@ -16,21 +17,34 @@ impl PathPolicy {
         _variable: PathVariable,
     ) -> Self {
         let mut drop_entries = Vec::new();
+        let mut ordering_presets = Vec::new();
         for entry in explicit_drops {
             push_unique(&mut drop_entries, entry);
         }
         for preset in presets {
-            if *preset == PresetKind::Fink {
-                for entry in FINK_DROP_ENTRIES {
-                    push_unique(&mut drop_entries, entry);
+            match preset {
+                PresetKind::Fink => {
+                    for entry in FINK_DROP_ENTRIES {
+                        push_unique(&mut drop_entries, entry);
+                    }
+                }
+                PresetKind::Homebrew | PresetKind::Cargo | PresetKind::Pyenv => {
+                    push_unique_preset(&mut ordering_presets, *preset);
                 }
             }
         }
-        Self { drop_entries }
+        Self {
+            drop_entries,
+            ordering_presets,
+        }
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
-        self.drop_entries.is_empty()
+    pub(crate) fn has_drop_entries(&self) -> bool {
+        !self.drop_entries.is_empty()
+    }
+
+    pub(crate) fn ordering_presets(&self) -> &[PresetKind] {
+        &self.ordering_presets
     }
 
     pub(crate) fn compile(
@@ -66,6 +80,13 @@ fn push_unique(entries: &mut Vec<String>, entry: &str) {
         return;
     }
     entries.push(entry.to_owned());
+}
+
+fn push_unique_preset(presets: &mut Vec<PresetKind>, preset: PresetKind) {
+    if presets.contains(&preset) {
+        return;
+    }
+    presets.push(preset);
 }
 
 #[cfg(test)]

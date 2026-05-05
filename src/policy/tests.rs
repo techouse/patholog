@@ -32,3 +32,22 @@ fn fink_preset_adds_drop_rules_once() {
     assert!(policy.matches_entry(&entries[2]));
     assert!(!policy.matches_entry(&entries[3]));
 }
+
+#[test]
+fn non_fink_presets_are_kept_as_deduped_ordering_rules() {
+    let policy = PathPolicy::new(
+        &[],
+        &[
+            PresetKind::Cargo,
+            PresetKind::Homebrew,
+            PresetKind::Cargo,
+            PresetKind::Pyenv,
+        ],
+        PathVariable::Path,
+    );
+
+    assert_eq!(
+        policy.ordering_presets(),
+        &[PresetKind::Cargo, PresetKind::Homebrew, PresetKind::Pyenv]
+    );
+}

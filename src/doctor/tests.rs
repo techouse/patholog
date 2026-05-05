@@ -1,4 +1,4 @@
-use crate::model::{IssueKind, PathVariable, PlatformMode};
+use crate::model::{IssueKind, PathVariable, PlatformMode, PresetKind};
 use crate::policy::PathPolicy;
 
 use std::path::Path;
@@ -95,6 +95,88 @@ fn manpath_diagnostics_do_not_report_path_ordering() {
             .diagnostics
             .iter()
             .all(|diagnostic| diagnostic.kind != IssueKind::SuspiciousOrder)
+    );
+}
+
+#[test]
+fn homebrew_preset_checks_homebrew_before_system_dirs() {
+    let report = diagnose_path_with_policy(
+        "/bin:/opt/homebrew/bin",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Homebrew], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/bin appears before /opt/homebrew/bin")
+    );
+}
+
+#[test]
+fn cargo_preset_checks_cargo_bin_even_when_other_user_tool_dirs_exist() {
+    let report = diagnose_path_with_policy(
+        "/usr/bin:/Users/me/.local/bin:/Users/me/.cargo/bin",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Cargo], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/usr/bin appears before /Users/me/.cargo/bin")
+    );
+}
+
+#[test]
+fn pyenv_preset_checks_pyenv_shims_even_when_other_user_tool_dirs_exist() {
+    let report = diagnose_path_with_policy(
+        "/usr/bin:/Users/me/.cargo/bin:/Users/me/.pyenv/shims",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Pyenv], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/usr/bin appears before /Users/me/.pyenv/shims")
+    );
+}
+
+#[test]
+fn repeated_ordering_presets_emit_one_diagnostic() {
+    let report = diagnose_path_with_policy(
+        "/bin:/opt/homebrew/bin",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(
+            &[],
+            &[PresetKind::Homebrew, PresetKind::Homebrew],
+            PathVariable::Path,
+        ),
+    );
+
+    assert_eq!(
+        report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/bin appears before /opt/homebrew/bin")
+            .count(),
+        1
     );
 }
 

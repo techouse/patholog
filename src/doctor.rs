@@ -45,6 +45,8 @@ pub(crate) fn diagnose_path_with_policy(
     ));
     if variable == PathVariable::Path {
         diagnostics.extend(ordering::diagnostics(&entries));
+        diagnostics.extend(ordering::preset_diagnostics(&entries, policy));
+        dedupe_diagnostics(&mut diagnostics);
     }
     DoctorReport {
         variable,
@@ -73,6 +75,27 @@ pub(crate) fn diagnose_command_path_with_policy(
         .diagnostics
         .extend(shadowed::diagnostics(command, &resolution.candidates));
     report
+}
+
+fn dedupe_diagnostics(diagnostics: &mut Vec<crate::model::Diagnostic>) {
+    let mut unique = Vec::new();
+    for diagnostic in diagnostics.drain(..) {
+        if !unique
+            .iter()
+            .any(|existing| same_diagnostic(existing, &diagnostic))
+        {
+            unique.push(diagnostic);
+        }
+    }
+    *diagnostics = unique;
+}
+
+fn same_diagnostic(left: &crate::model::Diagnostic, right: &crate::model::Diagnostic) -> bool {
+    left.kind == right.kind
+        && left.message == right.message
+        && left.entry_index == right.entry_index
+        && left.entry_value == right.entry_value
+        && left.related_indexes == right.related_indexes
 }
 
 #[cfg(test)]

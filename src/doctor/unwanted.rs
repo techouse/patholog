@@ -7,7 +7,7 @@ pub(super) fn diagnostics(
     platform_mode: PlatformMode,
     pathext: Option<&str>,
 ) -> Vec<Diagnostic> {
-    if policy.is_empty() {
+    if !policy.has_drop_entries() {
         return Vec::new();
     }
     let policy = policy.compile(platform_mode, pathext);

@@ -670,17 +670,31 @@ fn doctor_fink_preset_reports_unwanted_entries() {
 
 #[test]
 fn doctor_ordering_presets_are_accepted() {
-    for preset in ["homebrew", "cargo", "pyenv"] {
+    for (preset, path, expected_warning) in [
+        (
+            "homebrew",
+            "/bin:/opt/homebrew/bin",
+            "/bin appears before /opt/homebrew/bin",
+        ),
+        (
+            "cargo",
+            "/usr/bin:/Users/me/.local/bin:/Users/me/.cargo/bin",
+            "/usr/bin appears before /Users/me/.cargo/bin",
+        ),
+        (
+            "pyenv",
+            "/usr/bin:/Users/me/.cargo/bin:/Users/me/.pyenv/shims",
+            "/usr/bin appears before /Users/me/.pyenv/shims",
+        ),
+    ] {
         let result = run(
             ["doctor", "--platform", "posix", "--preset", preset],
-            context(
-                "/usr/bin:/opt/homebrew/bin:/Users/me/.cargo/bin:/Users/me/.pyenv/shims",
-                None,
-            ),
+            context(path, None),
         );
 
         assert_eq!(result.exit_code, ExitCode::Success);
         assert!(result.stdout.contains("Ordering warnings:"));
+        assert!(result.stdout.contains(expected_warning));
     }
 }
 
