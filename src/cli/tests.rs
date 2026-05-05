@@ -129,6 +129,306 @@ fn completions_outputs_scripts_for_supported_shells() {
 }
 
 #[test]
+fn apply_requires_dry_run() {
+    let result = run(["apply", "--shell", "zsh"], context("", None));
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(
+        result.stderr,
+        "patholog: apply requires --dry-run in v0.4.0\n"
+    );
+}
+
+#[test]
+fn apply_requires_shell() {
+    let result = run(["apply", "--dry-run"], context("", None));
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(result.stderr, "patholog: apply requires --shell\n");
+}
+
+#[test]
+fn apply_dry_run_uses_default_interactive_profiles() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+
+    for (shell, expected_path) in [
+        ("zsh", ".zshrc"),
+        ("bash", ".bashrc"),
+        ("fish", ".config/fish/config.fish"),
+        (
+            "pwsh",
+            ".config/powershell/Microsoft.PowerShell_profile.ps1",
+        ),
+    ] {
+        let result = run(
+            [
+                "apply",
+                "--dry-run",
+                "--shell",
+                shell,
+                "--platform",
+                "posix",
+            ],
+            context_with_home("/a:/b", None, directory.path()),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(
+            result
+                .stdout
+                .contains(&directory.path().join(expected_path).display().to_string())
+        );
+    }
+}
+
+#[test]
+fn apply_dry_run_windows_pwsh_uses_user_profile_dir() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let user_profile = directory.path().join("userprofile");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "pwsh",
+            "--platform",
+            "windows",
+        ],
+        context_with_home_dirs(r"C:\A;C:\B", None, &home, &user_profile),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(
+        result.stdout.contains(
+            &user_profile
+                .join("Documents/PowerShell/Microsoft.PowerShell_profile.ps1")
+                .display()
+                .to_string()
+        )
+    );
+}
+
+#[test]
+fn apply_dry_run_windows_posix_shells_use_home_dir() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let user_profile = directory.path().join("userprofile");
+
+    for (shell, expected_path) in [
+        ("bash", ".bashrc"),
+        ("fish", ".config/fish/config.fish"),
+        ("zsh", ".zshrc"),
+    ] {
+        let result = run(
+            [
+                "apply",
+                "--dry-run",
+                "--shell",
+                shell,
+                "--platform",
+                "windows",
+            ],
+            context_with_home_dirs(r"C:\A;C:\B", None, &home, &user_profile),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(
+            result
+                .stdout
+                .contains(&home.join(expected_path).display().to_string())
+        );
+        assert!(
+            !result
+                .stdout
+                .contains(&user_profile.join(expected_path).display().to_string())
+        );
+    }
+}
+
+#[test]
+fn apply_profile_overrides_home() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let home = directory.path().join("home");
+    let profile = directory.path().join("custom.profile");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--home",
+            home.to_str().expect("utf-8 home"),
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains(&profile.display().to_string()));
+    assert!(
+        !result
+            .stdout
+            .contains(&home.join(".bashrc").display().to_string())
+    );
+}
+
+#[test]
+fn apply_dry_run_reports_create_append_and_replace_actions() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let append_profile = directory.path().join("append.profile");
+    let replace_profile = directory.path().join("replace.profile");
+    std::fs::write(&append_profile, "export PATH=\"$HOME/bin:$PATH\"\n").expect("write profile");
+    std::fs::write(
+        &replace_profile,
+        "# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n",
+    )
+    .expect("write profile");
+
+    for (profile, expected_action) in [
+        (directory.path().join("missing.profile"), "create_profile"),
+        (append_profile, "append_block"),
+        (replace_profile, "replace_block"),
+    ] {
+        let result = run(
+            [
+                "apply",
+                "--dry-run",
+                "--shell",
+                "bash",
+                "--platform",
+                "posix",
+                "--profile",
+                profile.to_str().expect("utf-8 profile"),
+            ],
+            context("/a:/b:/a", None),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert!(result.stdout.contains(expected_action));
+        assert!(result.stdout.contains("# >>> patholog PATH >>>"));
+        assert!(result.stdout.contains("export PATH='/a:/b'"));
+    }
+}
+
+#[test]
+fn apply_dry_run_json_includes_plan_fields() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "zsh",
+            "--platform",
+            "posix",
+            "--json",
+            "--home",
+            directory.path().to_str().expect("utf-8 home"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("\"action\": \"create_profile\""));
+    assert!(result.stdout.contains("\"cleaned_path\": \"/a:/b\""));
+    assert!(result.stdout.contains("\"existing_block\": null"));
+    assert!(result.stdout.contains("\"would_write\": false"));
+}
+
+#[test]
+fn apply_rejects_non_file_profile() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("profile.d");
+    std::fs::create_dir(&profile).expect("create profile dir");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("not a file"));
+}
+
+#[cfg(unix)]
+#[test]
+fn apply_rejects_unreadable_profile() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("profile");
+    std::fs::write(&profile, "export PATH=\"$PATH\"\n").expect("write profile");
+    let mut permissions = std::fs::metadata(&profile)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o000);
+    std::fs::set_permissions(&profile, permissions).expect("make unreadable");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b", None),
+    );
+
+    let mut permissions = std::fs::metadata(&profile)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o600);
+    std::fs::set_permissions(&profile, permissions).expect("restore permissions");
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("not readable"));
+}
+
+#[test]
+fn apply_rejects_malformed_or_duplicate_managed_blocks() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let malformed = directory.path().join("malformed.profile");
+    let duplicate = directory.path().join("duplicate.profile");
+    std::fs::write(&malformed, "# >>> patholog PATH >>>\nexport PATH='/old'\n")
+        .expect("write malformed");
+    std::fs::write(
+        &duplicate,
+        "# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n",
+    )
+    .expect("write duplicate");
+
+    for profile in [malformed, duplicate] {
+        let result = run(
+            [
+                "apply",
+                "--dry-run",
+                "--shell",
+                "bash",
+                "--profile",
+                profile.to_str().expect("utf-8 profile"),
+            ],
+            context("/a:/b", None),
+        );
+
+        assert_eq!(result.exit_code, ExitCode::GeneralError);
+        assert!(result.stderr.contains("managed block"));
+    }
+}
+
+#[test]
 fn doctor_fail_on_returns_diagnostics_found() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let missing = directory.path().join("missing");
@@ -229,7 +529,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.3.0\n");
+    assert_eq!(result.stdout, "patholog 0.4.0\n");
     assert_eq!(result.stderr, "");
 }
 

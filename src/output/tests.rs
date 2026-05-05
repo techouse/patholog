@@ -1,12 +1,16 @@
 use crate::model::{
-    Diagnostic, DoctorReport, IssueKind, PathEntry, PathMutation, RelatedExecutableHint,
-    ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport,
+    ApplyAction, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry, PathMutation,
+    RelatedExecutableHint, ResolutionCandidate, ResolutionReport, ShellKind, ShellProfile,
+    ShellProfileScanReport,
 };
 
 use super::human::{
-    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
+    format_apply_plan, format_conflicts, format_doctor, format_print, format_shell_profile_scan,
+    format_why,
 };
-use super::json::{doctor_to_json, dumps_json, resolution_to_json, shell_profile_scan_to_json};
+use super::json::{
+    apply_plan_to_json, doctor_to_json, dumps_json, resolution_to_json, shell_profile_scan_to_json,
+};
 
 #[test]
 fn format_doctor_groups_diagnostics_in_contract_order() {
@@ -240,6 +244,25 @@ fn shell_profile_scan_json_includes_profile_state() {
     assert!(output.contains("\"readable\": false"));
 }
 
+#[test]
+fn format_apply_plan_renders_dry_run_details() {
+    let plan = apply_plan();
+
+    assert_eq!(
+        format_apply_plan(&plan),
+        "Apply dry-run: zsh\n\nTarget profile:\n  /home/me/.zshrc\nAction:\n  append_block\nWould write:\n  false\n\nCleaned PATH:\n  /a:/b\n\nPlanned block:\n# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
+    );
+}
+
+#[test]
+fn apply_plan_json_uses_stable_fields() {
+    let output = dumps_json(&apply_plan_to_json(&apply_plan())).expect("render apply json");
+
+    assert!(output.contains("\"action\": \"append_block\""));
+    assert!(output.contains("\"existing_block\": null"));
+    assert!(output.contains("\"would_write\": false"));
+}
+
 fn entry(index: usize, raw: &str) -> PathEntry {
     entry_with_state(index, raw, !raw.is_empty(), !raw.is_empty(), raw.is_empty())
 }
@@ -268,5 +291,18 @@ fn candidate(entry_index: usize, directory: &str, path: &str, wins: bool) -> Res
         directory: directory.to_owned(),
         path: path.to_owned(),
         wins,
+    }
+}
+
+fn apply_plan() -> ApplyPlan {
+    ApplyPlan {
+        shell: ShellKind::Zsh,
+        profile_path: "/home/me/.zshrc".to_owned(),
+        action: ApplyAction::AppendBlock,
+        existing_block: None,
+        planned_block: "# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<"
+            .to_owned(),
+        cleaned_path: "/a:/b".to_owned(),
+        would_write: false,
     }
 }

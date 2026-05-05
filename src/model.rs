@@ -1,3 +1,4 @@
+mod apply;
 mod diagnostic;
 mod doctor;
 mod exit_code;
@@ -7,6 +8,7 @@ mod resolution;
 mod scan;
 mod shell;
 
+pub use apply::{ApplyAction, ApplyPlan};
 pub use diagnostic::{Diagnostic, IssueKind};
 pub use doctor::DoctorReport;
 pub use exit_code::ExitCode;

@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
-use std::path::PathBuf;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::path::{Path, PathBuf};
 
 use patholog::cli::{CommandContext, run};
 use patholog::model::PlatformMode;
@@ -22,6 +24,8 @@ struct PathCase {
     command_mode: Option<String>,
     #[serde(default)]
     shell: String,
+    #[serde(default)]
+    profile_mode: String,
 }
 
 pub fn run_path_clean_bytes(data: &[u8]) {
@@ -65,6 +69,7 @@ pub fn run_cli_read_only_bytes(data: &[u8]) {
     let case = path_case_from_input(data);
     let platform = platform_arg(&case.platform);
     let shell = shell_arg(&case.shell);
+    let profile = prepare_apply_profile(data, &case.profile_mode);
     let context = CommandContext {
         path_value: case.path,
         pathext: case.pathext,
@@ -73,10 +78,19 @@ pub fn run_cli_read_only_bytes(data: &[u8]) {
         user_profile_dir: None,
     };
 
-    for args in cli_args(&case.command_mode, platform, shell, case.json) {
+    for args in cli_args(
+        &case.command_mode,
+        platform,
+        shell,
+        profile.as_ref().map(|profile| profile.profile.as_path()),
+        case.json,
+    ) {
         let result = run(args, context.clone());
         assert!(result.stdout.len() <= MAX_OUTPUT_LEN);
         assert!(result.stderr.len() <= MAX_OUTPUT_LEN);
+    }
+    if let Some(profile) = profile {
+        let _ignore = std::fs::remove_dir_all(profile.root);
     }
 }
 
@@ -88,6 +102,7 @@ fn path_case_from_input(data: &[u8]) -> PathCase {
         json: false,
         command_mode: None,
         shell: "bash".to_owned(),
+        profile_mode: String::new(),
     });
     case.path = truncate_string(case.path, MAX_INPUT_LEN);
     if let Some(pathext) = case.pathext.take() {
@@ -128,6 +143,51 @@ fn shell_arg(value: &str) -> &'static str {
     }
 }
 
+struct FuzzProfile {
+    root: PathBuf,
+    profile: PathBuf,
+}
+
+fn prepare_apply_profile(data: &[u8], profile_mode: &str) -> Option<FuzzProfile> {
+    let mut hasher = DefaultHasher::new();
+    data.hash(&mut hasher);
+    let root = std::env::temp_dir().join(format!(
+        "patholog-fuzz-{}-{}",
+        std::process::id(),
+        hasher.finish()
+    ));
+    let profile = root.join("profile");
+    let _ignore = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).ok()?;
+    match profile_mode {
+        "append" => {
+            std::fs::write(&profile, "export PATH=\"$HOME/bin:$PATH\"\n").ok()?;
+        }
+        "replace" => {
+            std::fs::write(
+                &profile,
+                "# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n",
+            )
+            .ok()?;
+        }
+        "malformed" => {
+            std::fs::write(&profile, "# >>> patholog PATH >>>\nexport PATH='/old'\n").ok()?;
+        }
+        "duplicate" => {
+            std::fs::write(
+                &profile,
+                "# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\n",
+            )
+            .ok()?;
+        }
+        "non_file" => {
+            std::fs::create_dir(&profile).ok()?;
+        }
+        _ => {}
+    }
+    Some(FuzzProfile { root, profile })
+}
+
 fn platform_separator(platform_mode: PlatformMode) -> char {
     match platform_mode {
         PlatformMode::Windows => ';',
@@ -163,6 +223,7 @@ fn cli_args(
     command_mode: &Option<String>,
     platform: &str,
     shell: &str,
+    profile: Option<&Path>,
     json: bool,
 ) -> Vec<Vec<String>> {
     match command_mode.as_deref() {
@@ -170,12 +231,14 @@ fn cli_args(
         Some("doctor") => vec![doctor_args(platform, json)],
         Some("clean") => vec![clean_args(platform)],
         Some("clean_export") => vec![clean_export_args(platform, shell)],
+        Some("apply") => vec![apply_args(platform, shell, profile, json)],
         Some("completions") => vec![completions_args(shell)],
         _ => vec![
             print_args(platform, json),
             doctor_args(platform, json),
             clean_args(platform),
             clean_export_args(platform, shell),
+            apply_args(platform, shell, profile, json),
             completions_args(shell),
         ],
     }
@@ -227,6 +290,25 @@ fn clean_export_args(platform: &str, shell: &str) -> Vec<String> {
 
 fn completions_args(shell: &str) -> Vec<String> {
     vec!["completions".to_owned(), shell.to_owned()]
+}
+
+fn apply_args(platform: &str, shell: &str, profile: Option<&Path>, json: bool) -> Vec<String> {
+    let mut args = vec![
+        "apply".to_owned(),
+        "--dry-run".to_owned(),
+        "--shell".to_owned(),
+        shell.to_owned(),
+        "--platform".to_owned(),
+        platform.to_owned(),
+    ];
+    if let Some(profile) = profile {
+        args.push("--profile".to_owned());
+        args.push(profile.display().to_string());
+    }
+    if json {
+        args.push("--json".to_owned());
+    }
+    args
 }
 
 fn truncate_string(mut value: String, max_len: usize) -> String {

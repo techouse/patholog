@@ -7,6 +7,7 @@ pub mod cli;
 /// Public data model types returned by analysis and resolution operations.
 pub mod model;
 
+pub(crate) mod apply;
 pub(crate) mod clean;
 pub(crate) mod doctor;
 pub(crate) mod normalize;

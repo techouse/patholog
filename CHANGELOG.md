@@ -2,6 +2,14 @@
 
 All notable changes to patholog are documented here.
 
+## 0.4.0 - 2026-05-04
+
+- Added read-only `apply --dry-run --shell zsh|bash|fish|pwsh` profile repair planning.
+- Added human and JSON apply dry-run output with planned managed blocks.
+- Added default interactive profile targeting plus `--home` and `--profile` overrides.
+- Added safety checks for non-file, unreadable, malformed, and duplicate managed-block profiles.
+- Added CLI, unit, and fuzz coverage for apply dry-run planning.
+
 ## 0.3.0 - 2026-05-03
 
 - Added read-only `clean --export --shell zsh|bash|fish|pwsh` shell assignment snippets.
