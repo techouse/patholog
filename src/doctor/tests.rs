@@ -1,8 +1,9 @@
-use crate::model::{IssueKind, PlatformMode};
+use crate::model::{IssueKind, PathVariable, PlatformMode};
+use crate::policy::PathPolicy;
 
 use std::path::Path;
 
-use super::{diagnose_command_path_with_policy, diagnose_path};
+use super::{diagnose_command_path_with_policy, diagnose_path, diagnose_path_with_policy};
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
@@ -76,6 +77,24 @@ fn ordering_diagnostic_warns_for_system_dir_before_user_tool_dir() {
             .iter()
             .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
                 && diagnostic.message == "/bin appears before /Users/me/.cargo/bin")
+    );
+}
+
+#[test]
+fn manpath_diagnostics_do_not_report_path_ordering() {
+    let report = diagnose_path_with_policy(
+        "/bin:/Users/me/.cargo/bin",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Manpath,
+        &PathPolicy::default(),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.kind != IssueKind::SuspiciousOrder)
     );
 }
 

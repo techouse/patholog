@@ -638,6 +638,24 @@ fn doctor_var_manpath_rejects_command_resolution() {
 }
 
 #[test]
+fn doctor_var_manpath_does_not_fail_on_path_ordering() {
+    let result = run(
+        [
+            "doctor",
+            "--var",
+            "manpath",
+            "--platform",
+            "posix",
+            "--fail-on=suspicious_order",
+        ],
+        context_with_manpath("", "/bin:/Users/me/.cargo/bin", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(!result.stdout.contains("Ordering warnings:"));
+}
+
+#[test]
 fn doctor_fink_preset_reports_unwanted_entries() {
     let result = run(
         ["doctor", "--platform", "posix", "--preset", "fink"],

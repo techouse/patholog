@@ -43,7 +43,9 @@ pub(crate) fn diagnose_path_with_policy(
         platform_mode,
         pathext,
     ));
-    diagnostics.extend(ordering::diagnostics(&entries));
+    if variable == PathVariable::Path {
+        diagnostics.extend(ordering::diagnostics(&entries));
+    }
     DoctorReport {
         variable,
         entries,
