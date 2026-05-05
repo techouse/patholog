@@ -217,6 +217,14 @@ fn existing_managed_block_rejects_malformed_block() {
 }
 
 #[test]
+fn existing_managed_block_rejects_indented_marker_lines() {
+    let content = format!("{START_MARKER}\nexport PATH='/old'\n  {END_MARKER}");
+    let error = existing_managed_block(&content).expect_err("indented marker should not match");
+
+    assert!(error.contains("malformed"));
+}
+
+#[test]
 fn existing_managed_block_rejects_duplicate_blocks() {
     let block = managed_block("export PATH='/old'");
     let error = existing_managed_block(&format!("{block}\n{block}")).expect_err("duplicate blocks");

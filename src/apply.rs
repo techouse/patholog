@@ -159,7 +159,7 @@ fn marker_offsets(content: &str, marker: &str) -> Vec<usize> {
         let line = without_newline
             .strip_suffix('\r')
             .unwrap_or(without_newline);
-        if line.trim() == marker {
+        if line == marker {
             offsets.push(offset);
         }
         offset += segment.len();
