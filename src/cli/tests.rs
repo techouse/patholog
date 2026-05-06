@@ -406,6 +406,8 @@ fn apply_dry_run_uses_drop_policy_in_cleaned_block() {
             "--dry-run",
             "--shell",
             "bash",
+            "--platform",
+            "posix",
             "--profile",
             profile.to_str().expect("utf-8 profile"),
             "--drop",
@@ -430,6 +432,8 @@ fn apply_dry_run_uses_fink_preset_drop_policy() {
             "--dry-run",
             "--shell",
             "bash",
+            "--platform",
+            "posix",
             "--profile",
             profile.to_str().expect("utf-8 profile"),
             "--preset",
@@ -584,38 +588,28 @@ fn doctor_fail_on_returns_diagnostics_found() {
 
 #[test]
 fn doctor_reports_unwanted_entries_and_fail_on() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let keep = directory.path().join("keep");
-    let drop = directory.path().join("drop");
-    std::fs::create_dir(&keep).expect("create keep");
-    std::fs::create_dir(&drop).expect("create drop");
-
     let result = run(
         [
             "doctor",
             "--platform",
             "posix",
             "--drop",
-            drop.to_str().expect("utf-8 drop"),
+            "drop",
             "--fail-on=unwanted",
         ],
-        context(&format!("{}:{}", drop.display(), keep.display()), None),
+        context("drop:keep", None),
     );
 
     assert_eq!(result.exit_code, ExitCode::DiagnosticsFound);
     assert!(result.stdout.contains("Unwanted entries:"));
-    assert!(result.stdout.contains(&drop.display().to_string()));
+    assert!(result.stdout.contains("drop"));
 }
 
 #[test]
 fn doctor_var_manpath_reports_manpath_entries() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let man = directory.path().join("man");
-    std::fs::create_dir(&man).expect("create man");
-
     let result = run(
         ["doctor", "--var", "manpath", "--platform", "posix"],
-        context_with_manpath("", &format!("{}:{}", man.display(), man.display()), None),
+        context_with_manpath("", "man:man", None),
     );
 
     assert_eq!(result.exit_code, ExitCode::Success);
