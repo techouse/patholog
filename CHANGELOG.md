@@ -12,6 +12,7 @@ All notable changes to patholog are documented here.
 
 - Added `--var path|manpath` to `print`, `doctor`, and `clean`.
 - Added `MANPATH` support in injected CLI context and shell export snippets.
+- Preserved empty MANPATH components during cleaning because common man implementations treat them as default-manpath placeholders.
 - Kept `apply`, `scan`, `why`, `conflicts`, and `doctor --command` PATH-only.
 
 ## 0.5.0 - 2026-05-05

@@ -178,6 +178,7 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
             variable_value(context, options.variable),
             options.platform,
             context.pathext.as_deref(),
+            options.variable,
             &policy,
         )
     ))

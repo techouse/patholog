@@ -537,6 +537,7 @@ Produces a cleaned PATH representation.
 
   * default to `path`
   * switch `print`, `doctor`, and `clean` to `MANPATH` when set to `manpath`
+  * preserve empty MANPATH components because they can represent the system default manpath
   * keep `apply`, `why`, `conflicts`, and `scan` PATH-only
 
 ### Example

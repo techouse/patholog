@@ -22,16 +22,23 @@ pub(crate) fn clean_path(
     platform_mode: PlatformMode,
     pathext: Option<&str>,
 ) -> String {
-    clean_path_with_policy(path_value, platform_mode, pathext, &PathPolicy::default())
+    clean_path_with_policy(
+        path_value,
+        platform_mode,
+        pathext,
+        PathVariable::Path,
+        &PathPolicy::default(),
+    )
 }
 
 pub(crate) fn clean_path_with_policy(
     path_value: &str,
     platform_mode: PlatformMode,
     pathext: Option<&str>,
+    variable: PathVariable,
     policy: &PathPolicy,
 ) -> String {
-    cleaned_path(path_value, platform_mode, pathext, policy).raw_path()
+    cleaned_path(path_value, platform_mode, pathext, variable, policy).raw_path()
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
@@ -60,7 +67,7 @@ pub(crate) fn clean_export_with_policy(
     policy: &PathPolicy,
 ) -> String {
     format_clean_export(
-        &cleaned_path(path_value, platform_mode, pathext, policy),
+        &cleaned_path(path_value, platform_mode, pathext, variable, policy),
         shell,
         variable,
     )
@@ -70,6 +77,7 @@ fn cleaned_path(
     path_value: &str,
     platform_mode: PlatformMode,
     pathext: Option<&str>,
+    variable: PathVariable,
     policy: &PathPolicy,
 ) -> CleanedPath {
     let rules = resolve_platform_rules(platform_mode, pathext);
@@ -79,14 +87,38 @@ fn cleaned_path(
         .into_iter()
         .filter(|entry| !policy.matches_entry(entry))
         .collect::<Vec<_>>();
-    let entries = first_unique_entries(&entries)
-        .into_iter()
-        .map(|entry| entry.raw)
-        .collect();
+    let entries = cleaned_entries(&entries, variable);
     CleanedPath {
         entries,
         separator: rules.separator,
     }
+}
+
+fn cleaned_entries(entries: &[crate::model::PathEntry], variable: PathVariable) -> Vec<String> {
+    match variable {
+        PathVariable::Path => first_unique_entries(entries)
+            .into_iter()
+            .map(|entry| entry.raw)
+            .collect(),
+        PathVariable::Manpath => first_unique_manpath_entries(entries),
+    }
+}
+
+fn first_unique_manpath_entries(entries: &[crate::model::PathEntry]) -> Vec<String> {
+    let mut output = Vec::new();
+    let mut seen = Vec::<String>::new();
+    for entry in entries {
+        if entry.is_empty {
+            output.push(entry.raw.clone());
+            continue;
+        }
+        if seen.contains(&entry.comparison_key) {
+            continue;
+        }
+        seen.push(entry.comparison_key.clone());
+        output.push(entry.raw.clone());
+    }
+    output
 }
 
 fn format_clean_export(cleaned: &CleanedPath, shell: ShellKind, variable: PathVariable) -> String {

@@ -27,6 +27,7 @@ pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, St
         options.path_value,
         options.platform_mode,
         options.pathext,
+        PathVariable::Path,
         &options.policy,
     );
     let planned_block = managed_block(&clean_export_with_policy(

@@ -55,6 +55,7 @@ fn clean_path_drops_unwanted_entries_before_deduping() {
             "first:second:first:third",
             PlatformMode::Posix,
             None,
+            PathVariable::Path,
             &policy,
         ),
         "second:third"
@@ -70,9 +71,40 @@ fn clean_path_applies_fink_preset_drop_rules() {
             "/usr/bin:/sw/bin:/sw/sbin:/sw/share/man",
             PlatformMode::Posix,
             None,
+            PathVariable::Path,
             &policy,
         ),
         "/usr/bin"
+    );
+}
+
+#[test]
+fn clean_path_preserves_manpath_empty_default_placeholders() {
+    assert_eq!(
+        clean_path_with_policy(
+            ":/usr/share/man::/opt/share/man:/usr/share/man:",
+            PlatformMode::Posix,
+            None,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        ":/usr/share/man::/opt/share/man:"
+    );
+}
+
+#[test]
+fn clean_path_preserves_manpath_empty_placeholders_after_drops() {
+    let policy = PathPolicy::new(&["/drop/man".to_owned()], &[], PathVariable::Manpath);
+
+    assert_eq!(
+        clean_path_with_policy(
+            "/keep/man:/drop/man::/keep/man",
+            PlatformMode::Posix,
+            None,
+            PathVariable::Manpath,
+            &policy,
+        ),
+        "/keep/man:"
     );
 }
 
@@ -162,6 +194,32 @@ fn clean_export_formats_manpath_with_variable_name() {
             &PathPolicy::default(),
         ),
         "$env:MANPATH = '/usr/share/man:/opt/share/man'"
+    );
+}
+
+#[test]
+fn clean_export_preserves_manpath_empty_default_placeholders() {
+    assert_eq!(
+        clean_export_with_policy(
+            "/usr/share/man::/opt/share/man:/usr/share/man",
+            PlatformMode::Posix,
+            None,
+            ShellKind::Bash,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        "export MANPATH='/usr/share/man::/opt/share/man'"
+    );
+    assert_eq!(
+        clean_export_with_policy(
+            "/usr/share/man::/opt/share/man:/usr/share/man",
+            PlatformMode::Posix,
+            None,
+            ShellKind::Fish,
+            PathVariable::Manpath,
+            &PathPolicy::default(),
+        ),
+        "set -gx MANPATH '/usr/share/man' '' '/opt/share/man'"
     );
 }
 

@@ -60,7 +60,7 @@ patholog doctor --command python
 patholog doctor --drop /sw/bin --fail-on=unwanted
 ```
 
-`--var manpath` switches `print`, `doctor`, and `clean` to `MANPATH`. Command resolution and profile planning stay PATH-only.
+`--var manpath` switches `print`, `doctor`, and `clean` to `MANPATH`. Command resolution and profile planning stay PATH-only. `clean --var manpath` preserves empty MANPATH components because common man implementations use them to include the system default manpath.
 
 `scan` reads known shell startup profiles under the home directory and reports likely PATH mutation lines. It does not source or edit those files:
 

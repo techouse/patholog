@@ -122,7 +122,7 @@ fn clean_export_outputs_manpath_shell_snippet() {
     assert_eq!(result.exit_code, ExitCode::Success);
     assert_eq!(
         result.stdout,
-        "export MANPATH='/usr/share/man:/opt/share/man'\n"
+        "export MANPATH='/usr/share/man::/opt/share/man'\n"
     );
 }
 
