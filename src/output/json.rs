@@ -15,6 +15,7 @@ pub(crate) fn entries_to_json(entries: &[PathEntry]) -> Value {
 
 pub(crate) fn doctor_to_json(report: &DoctorReport) -> Value {
     json!({
+        "variable": report.variable.as_str(),
         "entries": report.entries.iter().map(entry_to_json).collect::<Vec<_>>(),
         "diagnostics": report.diagnostics.iter().map(diagnostic_to_json).collect::<Vec<_>>(),
     })

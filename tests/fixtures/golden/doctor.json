@@ -19,5 +19,6 @@
       "kind": "missing",
       "raw": "{root}/missing"
     }
-  ]
+  ],
+  "variable": "path"
 }

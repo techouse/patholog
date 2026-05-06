@@ -177,6 +177,7 @@ fn dumps_json_uses_sorted_keys_pretty_indentation_and_trailing_newline() {
 
     assert!(output.ends_with('\n'));
     assert!(output.starts_with("{\n  \"diagnostics\": []"));
+    assert!(output.contains("\"variable\": \"path\""));
 }
 
 #[test]
@@ -204,6 +205,19 @@ fn json_output_classifies_entry_kinds_and_missing_winner() {
     assert!(doctor.contains("\"kind\": \"missing\""));
     assert!(doctor.contains("\"kind\": \"not_directory\""));
     assert!(resolution.contains("\"winner\": null"));
+}
+
+#[test]
+fn doctor_json_includes_report_variable() {
+    let report = DoctorReport {
+        variable: PathVariable::Manpath,
+        entries: vec![entry(1, "/usr/share/man")],
+        diagnostics: Vec::new(),
+    };
+
+    let output = dumps_json(&doctor_to_json(&report)).expect("render doctor json");
+
+    assert!(output.contains("\"variable\": \"manpath\""));
 }
 
 #[test]
