@@ -3,7 +3,8 @@ use crate::policy::PathPolicy;
 
 const USER_TOOL_DIR_SUFFIXES: &[&str] = &["/.cargo/bin", "/.local/bin", "/.pyenv/shims"];
 const SYSTEM_DIRS: &[&str] = &["/bin", "/usr/bin", "/usr/sbin", "/sbin"];
-const HOMEBREW_DIRS: &[&str] = &["/opt/homebrew/bin", "/usr/local/bin"];
+const SYSTEM_DIR_KEYS: &[&str] = &["/bin", "/usr/bin", "/usr/sbin", "/sbin"];
+const HOMEBREW_DIR_KEYS: &[&str] = &["/opt/homebrew/bin", "/usr/local/bin"];
 
 pub(super) fn diagnostics(entries: &[PathEntry]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -63,8 +64,8 @@ fn homebrew_order_diagnostic(usr_bin: &PathEntry, homebrew: &PathEntry) -> Diagn
 }
 
 fn homebrew_preset_diagnostic(entries: &[PathEntry]) -> Option<Diagnostic> {
-    let first_system = first_matching_entry(entries, SYSTEM_DIRS)?;
-    let first_homebrew = first_matching_entry(entries, HOMEBREW_DIRS)?;
+    let first_system = first_matching_key_entry(entries, SYSTEM_DIR_KEYS)?;
+    let first_homebrew = first_matching_key_entry(entries, HOMEBREW_DIR_KEYS)?;
     if first_system.index < first_homebrew.index {
         return Some(user_tool_order_diagnostic(first_system, first_homebrew));
     }
@@ -72,8 +73,8 @@ fn homebrew_preset_diagnostic(entries: &[PathEntry]) -> Option<Diagnostic> {
 }
 
 fn user_tool_preset_diagnostic(entries: &[PathEntry], suffix: &str) -> Option<Diagnostic> {
-    let first_system = first_matching_entry(entries, SYSTEM_DIRS)?;
-    let first_user_tool = first_entry_with_suffix(entries, suffix)?;
+    let first_system = first_matching_key_entry(entries, SYSTEM_DIR_KEYS)?;
+    let first_user_tool = first_key_entry_with_suffix(entries, suffix)?;
     if first_system.index < first_user_tool.index {
         return Some(user_tool_order_diagnostic(first_system, first_user_tool));
     }
@@ -108,6 +109,15 @@ fn first_matching_entry<'a>(
         .find(|entry| !entry.is_empty && raw_values.contains(&entry.raw.as_str()))
 }
 
+fn first_matching_key_entry<'a>(
+    entries: &'a [PathEntry],
+    comparison_keys: &[&str],
+) -> Option<&'a PathEntry> {
+    entries
+        .iter()
+        .find(|entry| !entry.is_empty && comparison_keys.contains(&entry.comparison_key.as_str()))
+}
+
 fn first_user_tool_entry(entries: &[PathEntry]) -> Option<&PathEntry> {
     entries.iter().find(|entry| {
         USER_TOOL_DIR_SUFFIXES
@@ -116,10 +126,19 @@ fn first_user_tool_entry(entries: &[PathEntry]) -> Option<&PathEntry> {
     })
 }
 
-fn first_entry_with_suffix<'a>(entries: &'a [PathEntry], suffix: &str) -> Option<&'a PathEntry> {
-    entries.iter().find(|entry| entry_has_suffix(entry, suffix))
-}
-
 fn entry_has_suffix(entry: &PathEntry, suffix: &str) -> bool {
     !entry.is_empty && entry.raw.ends_with(suffix)
+}
+
+fn first_key_entry_with_suffix<'a>(
+    entries: &'a [PathEntry],
+    suffix: &str,
+) -> Option<&'a PathEntry> {
+    entries
+        .iter()
+        .find(|entry| entry_key_has_suffix(entry, suffix))
+}
+
+fn entry_key_has_suffix(entry: &PathEntry, suffix: &str) -> bool {
+    !entry.is_empty && entry.comparison_key.ends_with(suffix)
 }

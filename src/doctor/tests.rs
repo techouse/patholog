@@ -118,6 +118,25 @@ fn homebrew_preset_checks_homebrew_before_system_dirs() {
 }
 
 #[test]
+fn homebrew_preset_uses_normalized_path_keys() {
+    let report = diagnose_path_with_policy(
+        "/usr/./bin/:/opt/homebrew/./bin/",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Homebrew], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/usr/./bin/ appears before /opt/homebrew/./bin/")
+    );
+}
+
+#[test]
 fn cargo_preset_checks_cargo_bin_even_when_other_user_tool_dirs_exist() {
     let report = diagnose_path_with_policy(
         "/usr/bin:/Users/me/.local/bin:/Users/me/.cargo/bin",
@@ -133,6 +152,25 @@ fn cargo_preset_checks_cargo_bin_even_when_other_user_tool_dirs_exist() {
             .iter()
             .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
                 && diagnostic.message == "/usr/bin appears before /Users/me/.cargo/bin")
+    );
+}
+
+#[test]
+fn cargo_preset_uses_normalized_path_keys() {
+    let report = diagnose_path_with_policy(
+        "/usr/bin/:/Users/me/.cargo/./bin/",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Cargo], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.kind == IssueKind::SuspiciousOrder
+                && diagnostic.message == "/usr/bin/ appears before /Users/me/.cargo/./bin/")
     );
 }
 
