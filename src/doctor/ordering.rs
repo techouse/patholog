@@ -3,7 +3,6 @@ use crate::policy::PathPolicy;
 
 const USER_TOOL_DIR_SUFFIXES: &[&str] = &["/.cargo/bin", "/.local/bin", "/.pyenv/shims"];
 const SYSTEM_DIRS: &[&str] = &["/bin", "/usr/bin", "/usr/sbin", "/sbin"];
-const SYSTEM_DIR_KEYS: &[&str] = &["/bin", "/usr/bin", "/usr/sbin", "/sbin"];
 const HOMEBREW_DIR_KEYS: &[&str] = &["/opt/homebrew/bin", "/usr/local/bin"];
 
 pub(super) fn diagnostics(entries: &[PathEntry]) -> Vec<Diagnostic> {
@@ -64,7 +63,7 @@ fn homebrew_order_diagnostic(usr_bin: &PathEntry, homebrew: &PathEntry) -> Diagn
 }
 
 fn homebrew_preset_diagnostic(entries: &[PathEntry]) -> Option<Diagnostic> {
-    let first_system = first_matching_key_entry(entries, SYSTEM_DIR_KEYS)?;
+    let first_system = first_matching_key_entry(entries, SYSTEM_DIRS)?;
     let first_homebrew = first_matching_key_entry(entries, HOMEBREW_DIR_KEYS)?;
     if first_system.index < first_homebrew.index {
         return Some(user_tool_order_diagnostic(first_system, first_homebrew));
@@ -73,7 +72,7 @@ fn homebrew_preset_diagnostic(entries: &[PathEntry]) -> Option<Diagnostic> {
 }
 
 fn user_tool_preset_diagnostic(entries: &[PathEntry], suffix: &str) -> Option<Diagnostic> {
-    let first_system = first_matching_key_entry(entries, SYSTEM_DIR_KEYS)?;
+    let first_system = first_matching_key_entry(entries, SYSTEM_DIRS)?;
     let first_user_tool = first_key_entry_with_suffix(entries, suffix)?;
     if first_system.index < first_user_tool.index {
         return Some(user_tool_order_diagnostic(first_system, first_user_tool));
