@@ -11,7 +11,7 @@ pub(crate) struct CleanedPath {
 }
 
 impl CleanedPath {
-    fn raw_path(&self) -> String {
+    pub(crate) fn raw_path(&self) -> String {
         self.entries.join(&self.separator.to_string())
     }
 }
@@ -38,7 +38,7 @@ pub(crate) fn clean_path_with_policy(
     variable: PathVariable,
     policy: &PathPolicy,
 ) -> String {
-    cleaned_path(path_value, platform_mode, pathext, variable, policy).raw_path()
+    clean_with_policy(path_value, platform_mode, pathext, variable, policy).raw_path()
 }
 
 #[cfg(any(test, feature = "fuzzing"))]
@@ -67,13 +67,13 @@ pub(crate) fn clean_export_with_policy(
     policy: &PathPolicy,
 ) -> String {
     format_clean_export(
-        &cleaned_path(path_value, platform_mode, pathext, variable, policy),
+        &clean_with_policy(path_value, platform_mode, pathext, variable, policy),
         shell,
         variable,
     )
 }
 
-fn cleaned_path(
+pub(crate) fn clean_with_policy(
     path_value: &str,
     platform_mode: PlatformMode,
     pathext: Option<&str>,
@@ -121,7 +121,11 @@ fn first_unique_manpath_entries(entries: &[crate::model::PathEntry]) -> Vec<Stri
     output
 }
 
-fn format_clean_export(cleaned: &CleanedPath, shell: ShellKind, variable: PathVariable) -> String {
+pub(crate) fn format_clean_export(
+    cleaned: &CleanedPath,
+    shell: ShellKind,
+    variable: PathVariable,
+) -> String {
     match shell {
         ShellKind::Bash | ShellKind::Zsh => {
             format!(

@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::clean::{clean_export_with_policy, clean_path_with_policy};
+use crate::clean::{clean_with_policy, format_clean_export};
 use crate::model::{ApplyAction, ApplyPlan, PathVariable, PlatformMode, ShellKind};
 use crate::platform::resolve_platform_rules;
 use crate::policy::PathPolicy;
@@ -23,20 +23,18 @@ pub(crate) struct ApplyPlanOptions<'a> {
 
 pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, String> {
     let profile_path = target_profile(options)?;
-    let cleaned_path = clean_path_with_policy(
+    let cleaned = clean_with_policy(
         options.path_value,
         options.platform_mode,
         options.pathext,
         PathVariable::Path,
         &options.policy,
     );
-    let planned_block = managed_block(&clean_export_with_policy(
-        options.path_value,
-        options.platform_mode,
-        options.pathext,
+    let cleaned_path = cleaned.raw_path();
+    let planned_block = managed_block(&format_clean_export(
+        &cleaned,
         options.shell,
         PathVariable::Path,
-        &options.policy,
     ));
 
     match fs::metadata(&profile_path) {
