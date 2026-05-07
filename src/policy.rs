@@ -1,6 +1,7 @@
 use crate::model::{PathEntry, PathVariable, PlatformMode, PresetKind};
 use crate::normalize::comparison_key;
 use crate::platform::resolve_platform_rules;
+use std::collections::HashSet;
 
 const FINK_PATH_DROP_ENTRIES: &[&str] = &["/sw/bin", "/sw/sbin"];
 const FINK_MANPATH_DROP_ENTRIES: &[&str] = &["/sw/share/man"];
@@ -54,12 +55,10 @@ impl PathPolicy {
         pathext: Option<&str>,
     ) -> CompiledPathPolicy {
         let rules = resolve_platform_rules(platform_mode, pathext);
-        let mut drop_keys = Vec::new();
+        let mut drop_keys = HashSet::with_capacity(self.drop_entries.len());
         for entry in &self.drop_entries {
             let key = comparison_key(entry, &rules);
-            if !drop_keys.contains(&key) {
-                drop_keys.push(key);
-            }
+            drop_keys.insert(key);
         }
         CompiledPathPolicy { drop_keys }
     }
@@ -74,7 +73,7 @@ fn fink_drop_entries(variable: PathVariable) -> &'static [&'static str] {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct CompiledPathPolicy {
-    drop_keys: Vec<String>,
+    drop_keys: HashSet<String>,
 }
 
 impl CompiledPathPolicy {
