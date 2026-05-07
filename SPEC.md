@@ -665,7 +665,7 @@ Behaviour:
 * remove matching entries before first-win deduplication in `clean` and `apply --dry-run`
 
 `--preset homebrew|cargo|pyenv|fink` enables built-in policy. `homebrew`, `cargo`, and `pyenv` are diagnostic-only
-ordering presets. `fink` marks `/sw/bin`, `/sw/sbin`, and `/sw/share/man` as unwanted. Presets never reorder entries.
+ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. Presets never reorder entries.
 
 ---
 

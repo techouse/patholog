@@ -74,7 +74,23 @@ fn clean_path_applies_fink_preset_drop_rules() {
             PathVariable::Path,
             &policy,
         ),
-        "/usr/bin"
+        "/usr/bin:/sw/share/man"
+    );
+}
+
+#[test]
+fn clean_path_applies_fink_manpath_preset_drop_rules() {
+    let policy = PathPolicy::new(&[], &[PresetKind::Fink], PathVariable::Manpath);
+
+    assert_eq!(
+        clean_path_with_policy(
+            "/usr/share/man:/sw/share/man::/usr/share/man",
+            PlatformMode::Posix,
+            None,
+            PathVariable::Manpath,
+            &policy,
+        ),
+        "/usr/share/man:"
     );
 }
 

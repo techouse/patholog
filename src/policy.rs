@@ -2,7 +2,8 @@ use crate::model::{PathEntry, PathVariable, PlatformMode, PresetKind};
 use crate::normalize::comparison_key;
 use crate::platform::resolve_platform_rules;
 
-const FINK_DROP_ENTRIES: &[&str] = &["/sw/bin", "/sw/sbin", "/sw/share/man"];
+const FINK_PATH_DROP_ENTRIES: &[&str] = &["/sw/bin", "/sw/sbin"];
+const FINK_MANPATH_DROP_ENTRIES: &[&str] = &["/sw/share/man"];
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct PathPolicy {
@@ -14,7 +15,7 @@ impl PathPolicy {
     pub(crate) fn new(
         explicit_drops: &[String],
         presets: &[PresetKind],
-        _variable: PathVariable,
+        variable: PathVariable,
     ) -> Self {
         let mut drop_entries = Vec::new();
         let mut ordering_presets = Vec::new();
@@ -24,7 +25,7 @@ impl PathPolicy {
         for preset in presets {
             match preset {
                 PresetKind::Fink => {
-                    for entry in FINK_DROP_ENTRIES {
+                    for entry in fink_drop_entries(variable) {
                         push_unique(&mut drop_entries, entry);
                     }
                 }
@@ -61,6 +62,13 @@ impl PathPolicy {
             }
         }
         CompiledPathPolicy { drop_keys }
+    }
+}
+
+fn fink_drop_entries(variable: PathVariable) -> &'static [&'static str] {
+    match variable {
+        PathVariable::Path => FINK_PATH_DROP_ENTRIES,
+        PathVariable::Manpath => FINK_MANPATH_DROP_ENTRIES,
     }
 }
 

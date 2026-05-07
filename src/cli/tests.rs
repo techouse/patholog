@@ -62,7 +62,7 @@ fn clean_stdout_applies_repeated_fink_preset_once() {
     );
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "/usr/bin\n");
+    assert_eq!(result.stdout, "/usr/bin:/sw/share/man\n");
 }
 
 #[test]
@@ -660,6 +660,26 @@ fn doctor_fink_preset_reports_unwanted_entries() {
     assert!(result.stdout.contains("Unwanted entries:"));
     assert!(result.stdout.contains("/sw/bin"));
     assert!(result.stdout.contains("/sw/sbin"));
+}
+
+#[test]
+fn doctor_fink_preset_reports_manpath_unwanted_entries() {
+    let result = run(
+        [
+            "doctor",
+            "--var",
+            "manpath",
+            "--platform",
+            "posix",
+            "--preset",
+            "fink",
+        ],
+        context_with_manpath("", "/sw/share/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains("/sw/share/man"));
 }
 
 #[test]

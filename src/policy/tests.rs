@@ -29,6 +29,22 @@ fn fink_preset_adds_drop_rules_once() {
 
     assert!(policy.matches_entry(&entries[0]));
     assert!(policy.matches_entry(&entries[1]));
+    assert!(!policy.matches_entry(&entries[2]));
+    assert!(!policy.matches_entry(&entries[3]));
+}
+
+#[test]
+fn fink_preset_uses_manpath_drop_rules_for_manpath() {
+    let policy = PathPolicy::new(&[], &[PresetKind::Fink], PathVariable::Manpath)
+        .compile(PlatformMode::Posix, None);
+    let entries = parse_path(
+        "/sw/bin:/sw/sbin:/sw/share/man:/usr/share/man",
+        PlatformMode::Posix,
+        None,
+    );
+
+    assert!(!policy.matches_entry(&entries[0]));
+    assert!(!policy.matches_entry(&entries[1]));
     assert!(policy.matches_entry(&entries[2]));
     assert!(!policy.matches_entry(&entries[3]));
 }

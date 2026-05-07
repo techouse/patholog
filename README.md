@@ -100,7 +100,7 @@ patholog apply --dry-run --shell zsh --json
 patholog apply --dry-run --shell zsh --drop /sw/bin
 ```
 
-`--preset fink` marks `/sw/bin`, `/sw/sbin`, and `/sw/share/man` as unwanted. `homebrew`, `cargo`, and `pyenv` presets enable ecosystem policy checks without automatically reordering entries.
+`--preset fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. `homebrew`, `cargo`, and `pyenv` presets enable ecosystem policy checks without automatically reordering entries.
 
 ## Exit Codes
 

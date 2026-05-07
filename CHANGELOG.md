@@ -5,7 +5,7 @@ All notable changes to patholog are documented here.
 ## 0.5.2 - 2026-05-05
 
 - Added `--preset homebrew|cargo|pyenv|fink` to `doctor`, `clean`, and `apply --dry-run`.
-- Added fink preset drop rules for `/sw/bin`, `/sw/sbin`, and `/sw/share/man`.
+- Added fink preset drop rules for PATH (`/sw/bin`, `/sw/sbin`) and MANPATH (`/sw/share/man`).
 - Added preset CLI and fuzz coverage while keeping presets read-only and non-reordering.
 
 ## 0.5.1 - 2026-05-05
