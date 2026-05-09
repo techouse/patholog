@@ -202,17 +202,35 @@ pub(crate) fn existing_managed_block_span(content: &str) -> Result<Option<Range<
 }
 
 pub(crate) fn appended_profile_content(existing: &str, planned_block: &str) -> String {
-    let mut content = String::with_capacity(existing.len() + planned_block.len() + 2);
+    let line_ending = line_ending_for(existing);
+    let planned_block = planned_block_with_line_ending(planned_block, line_ending);
+    let mut content =
+        String::with_capacity(existing.len() + planned_block.len() + 2 * line_ending.len());
     content.push_str(existing);
     if !content.is_empty() {
-        if !content.ends_with('\n') {
-            content.push('\n');
+        if !content.ends_with(line_ending) {
+            content.push_str(line_ending);
         }
-        content.push('\n');
+        content.push_str(line_ending);
     }
-    content.push_str(planned_block);
-    content.push('\n');
+    content.push_str(&planned_block);
+    content.push_str(line_ending);
     content
+}
+
+fn line_ending_for(content: &str) -> &'static str {
+    if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn planned_block_with_line_ending(block: &str, line_ending: &str) -> String {
+    if line_ending == "\n" {
+        return block.to_owned();
+    }
+    block.replace('\n', line_ending)
 }
 
 pub(crate) fn replaced_profile_content(

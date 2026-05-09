@@ -273,6 +273,20 @@ fn appended_profile_content_preserves_existing_text_with_separator() {
 }
 
 #[test]
+fn appended_profile_content_preserves_crlf_line_endings() {
+    let block = managed_block("export PATH='/new'");
+
+    assert_eq!(
+        appended_profile_content("before\r\n", &block),
+        "before\r\n\r\n# >>> patholog PATH >>>\r\nexport PATH='/new'\r\n# <<< patholog PATH <<<\r\n"
+    );
+    assert_eq!(
+        appended_profile_content("before", &block),
+        "before\n\n# >>> patholog PATH >>>\nexport PATH='/new'\n# <<< patholog PATH <<<\n"
+    );
+}
+
+#[test]
 fn backup_path_for_seconds_adds_collision_suffixes() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".zshrc");
