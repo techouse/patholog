@@ -1,8 +1,8 @@
 use serde_json::{Value, json};
 
 use crate::model::{
-    ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation, ResolutionCandidate,
-    ResolutionReport, ShellProfile, ShellProfileScanReport,
+    ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation,
+    ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport,
 };
 
 pub(crate) fn dumps_json(value: &Value) -> Result<String, serde_json::Error> {
@@ -60,6 +60,16 @@ pub(crate) fn apply_plan_to_json(plan: &ApplyPlan) -> Value {
         "cleaned_path": plan.cleaned_path,
         "would_write": plan.would_write,
     })
+}
+
+pub(crate) fn apply_outcome_to_json(outcome: &ApplyOutcome) -> Value {
+    let mut value = apply_plan_to_json(&outcome.plan);
+    if let Some(object) = value.as_object_mut() {
+        object.insert("wrote".to_owned(), json!(outcome.wrote));
+        object.insert("backup_path".to_owned(), json!(outcome.backup_path));
+        object.insert("backup_created".to_owned(), json!(outcome.backup_created));
+    }
+    value
 }
 
 fn entry_to_json(entry: &PathEntry) -> Value {

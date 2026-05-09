@@ -1,15 +1,16 @@
 use crate::model::{
-    ApplyAction, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry, PathMutation,
-    PathVariable, RelatedExecutableHint, ResolutionCandidate, ResolutionReport, ShellKind,
-    ShellProfile, ShellProfileScanReport,
+    ApplyAction, ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry,
+    PathMutation, PathVariable, RelatedExecutableHint, ResolutionCandidate, ResolutionReport,
+    ShellKind, ShellProfile, ShellProfileScanReport,
 };
 
 use super::human::{
-    format_apply_plan, format_conflicts, format_doctor, format_print, format_shell_profile_scan,
-    format_why,
+    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_print,
+    format_shell_profile_scan, format_why,
 };
 use super::json::{
-    apply_plan_to_json, doctor_to_json, dumps_json, resolution_to_json, shell_profile_scan_to_json,
+    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, resolution_to_json,
+    shell_profile_scan_to_json,
 };
 
 #[test]
@@ -322,6 +323,26 @@ fn apply_plan_json_uses_stable_fields() {
     assert!(output.contains("\"would_write\": false"));
 }
 
+#[test]
+fn format_apply_outcome_renders_write_details() {
+    let outcome = apply_outcome();
+
+    assert_eq!(
+        format_apply_outcome(&outcome),
+        "Apply: zsh\n\nTarget profile:\n  /home/me/.zshrc\nAction:\n  append_block\nWrote:\n  true\nBackup:\n  /home/me/.zshrc.patholog-backup.123\n\nCleaned PATH:\n  /a:/b\n\nWritten block:\n# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
+    );
+}
+
+#[test]
+fn apply_outcome_json_adds_write_fields() {
+    let output = dumps_json(&apply_outcome_to_json(&apply_outcome())).expect("render apply json");
+
+    assert!(output.contains("\"would_write\": true"));
+    assert!(output.contains("\"wrote\": true"));
+    assert!(output.contains("\"backup_created\": true"));
+    assert!(output.contains("\"backup_path\": \"/home/me/.zshrc.patholog-backup.123\""));
+}
+
 fn entry(index: usize, raw: &str) -> PathEntry {
     entry_with_state(index, raw, !raw.is_empty(), !raw.is_empty(), raw.is_empty())
 }
@@ -363,5 +384,16 @@ fn apply_plan() -> ApplyPlan {
             .to_owned(),
         cleaned_path: "/a:/b".to_owned(),
         would_write: false,
+    }
+}
+
+fn apply_outcome() -> ApplyOutcome {
+    let mut plan = apply_plan();
+    plan.would_write = true;
+    ApplyOutcome {
+        plan,
+        wrote: true,
+        backup_path: Some("/home/me/.zshrc.patholog-backup.123".to_owned()),
+        backup_created: true,
     }
 }

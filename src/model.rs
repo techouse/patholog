@@ -10,7 +10,7 @@ mod resolution;
 mod scan;
 mod shell;
 
-pub use apply::{ApplyAction, ApplyPlan};
+pub use apply::{ApplyAction, ApplyOutcome, ApplyPlan};
 pub use diagnostic::{Diagnostic, IssueKind};
 pub use doctor::DoctorReport;
 pub use exit_code::ExitCode;

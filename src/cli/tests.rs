@@ -206,17 +206,47 @@ fn completions_outputs_scripts_for_supported_shells() {
         assert_eq!(result.exit_code, ExitCode::Success);
         assert!(result.stdout.contains("clean"));
         assert!(result.stdout.contains("completions"));
+        assert!(result.stdout.contains("yes"));
+        assert!(result.stdout.contains("no-backup"));
     }
 }
 
 #[test]
-fn apply_requires_dry_run() {
+fn apply_requires_output_mode() {
     let result = run(["apply", "--shell", "zsh"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::GeneralError);
     assert_eq!(
         result.stderr,
-        "patholog: apply requires --dry-run in v0.5.x\n"
+        "patholog: apply requires --dry-run or --yes\n"
+    );
+}
+
+#[test]
+fn apply_rejects_conflicting_modes() {
+    let result = run(
+        ["apply", "--dry-run", "--yes", "--shell", "zsh"],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(
+        result.stderr,
+        "patholog: apply cannot use --dry-run with --yes\n"
+    );
+}
+
+#[test]
+fn apply_no_backup_requires_yes() {
+    let result = run(
+        ["apply", "--dry-run", "--no-backup", "--shell", "zsh"],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert_eq!(
+        result.stderr,
+        "patholog: apply --no-backup requires --yes\n"
     );
 }
 
@@ -473,6 +503,161 @@ fn apply_dry_run_json_includes_plan_fields() {
 }
 
 #[test]
+fn apply_yes_creates_profile_without_backup() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("nested/.zshrc");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "zsh",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Apply: zsh"));
+    assert!(result.stdout.contains("Wrote:\n  true"));
+    assert!(result.stdout.contains("Backup:\n  none"));
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
+    );
+    assert!(backup_paths_for(&profile).is_empty());
+}
+
+#[test]
+fn apply_yes_appends_block_and_creates_backup_by_default() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    let original = "export PATH=\"$HOME/bin:$PATH\"\n";
+    std::fs::write(&profile, original).expect("write profile");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Action:\n  append_block"));
+    assert!(result.stdout.contains("Backup:\n  "));
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "export PATH=\"$HOME/bin:$PATH\"\n\n# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
+    );
+    let backups = backup_paths_for(&profile);
+    assert_eq!(backups.len(), 1);
+    assert_eq!(
+        std::fs::read_to_string(&backups[0]).expect("read backup"),
+        original
+    );
+}
+
+#[test]
+fn apply_yes_replaces_block_and_creates_backup_by_default() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    let original =
+        "before\n# >>> patholog PATH >>>\nexport PATH='/old'\n# <<< patholog PATH <<<\nafter\n";
+    std::fs::write(&profile, original).expect("write profile");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Action:\n  replace_block"));
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "before\n# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\nafter\n"
+    );
+    let backups = backup_paths_for(&profile);
+    assert_eq!(backups.len(), 1);
+    assert_eq!(
+        std::fs::read_to_string(&backups[0]).expect("read backup"),
+        original
+    );
+}
+
+#[test]
+fn apply_yes_no_backup_writes_without_backup() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, "before\n").expect("write profile");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--no-backup",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Backup:\n  disabled"));
+    assert!(backup_paths_for(&profile).is_empty());
+}
+
+#[test]
+fn apply_yes_json_includes_write_fields() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".zshrc");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "zsh",
+            "--platform",
+            "posix",
+            "--json",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b:/a", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("\"would_write\": true"));
+    assert!(result.stdout.contains("\"wrote\": true"));
+    assert!(result.stdout.contains("\"backup_created\": false"));
+    assert!(result.stdout.contains("\"backup_path\": null"));
+}
+
+#[test]
 fn print_can_read_manpath() {
     let result = run(
         ["print", "--var", "manpath", "--platform", "posix"],
@@ -570,6 +755,34 @@ fn apply_rejects_malformed_or_duplicate_managed_blocks() {
         assert_eq!(result.exit_code, ExitCode::GeneralError);
         assert!(result.stderr.contains("managed block"));
     }
+}
+
+#[test]
+fn apply_yes_rejects_malformed_block_without_writing() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("malformed.profile");
+    let original = "# >>> patholog PATH >>>\nexport PATH='/old'\n";
+    std::fs::write(&profile, original).expect("write malformed");
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("managed block"));
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        original
+    );
+    assert!(backup_paths_for(&profile).is_empty());
 }
 
 #[test]
@@ -799,7 +1012,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.5.2\n");
+    assert_eq!(result.stdout, "patholog 0.6.0\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -912,6 +1125,29 @@ fn context_with_home_dirs(
         home_dir: Some(home.to_path_buf()),
         user_profile_dir: Some(user_profile.to_path_buf()),
     }
+}
+
+fn backup_paths_for(profile: &Path) -> Vec<std::path::PathBuf> {
+    let parent = profile.parent().expect("profile has parent");
+    let prefix = format!(
+        "{}.patholog-backup.",
+        profile
+            .file_name()
+            .expect("profile has file name")
+            .to_string_lossy()
+    );
+    let mut paths = std::fs::read_dir(parent)
+        .expect("read profile parent")
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .map(|name| name.to_string_lossy().starts_with(&prefix))
+                .unwrap_or(false)
+        })
+        .collect::<Vec<_>>();
+    paths.sort();
+    paths
 }
 
 fn make_executable(path: &Path) {

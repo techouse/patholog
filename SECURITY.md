@@ -8,12 +8,13 @@
 
 ## Scope
 
-`patholog` is a local CLI for PATH diagnostics. Current v0.x commands are intentionally read-only, except for writing output to stdout and stderr.
+`patholog` is a local CLI for PATH diagnostics and safe profile repair. Current v0.x commands are read-only except for `apply --yes`, which writes a patholog-managed shell profile block.
 
 Please report issues that could affect confidentiality, integrity, or availability, including:
 
 - unexpected file writes or shell profile mutation
 - misleading `apply --dry-run` profile repair plans
+- missing or misleading `apply --yes` backups
 - misleading `--drop` or `--preset` cleanup policy output
 - command resolution behavior that could mislead users into executing the wrong binary
 - output escaping or injection issues in human or JSON output

@@ -4,7 +4,9 @@ use crate::model::{ApplyAction, PlatformMode, ShellKind};
 use crate::policy::PathPolicy;
 
 use super::{
-    ApplyPlanOptions, END_MARKER, START_MARKER, existing_managed_block, managed_block, plan_apply,
+    ApplyPlanOptions, END_MARKER, START_MARKER, appended_profile_content, backup_path_for_seconds,
+    existing_managed_block, existing_managed_block_span, managed_block, plan_apply,
+    replaced_profile_content, write_apply_plan,
 };
 
 #[test]
@@ -234,6 +236,112 @@ fn existing_managed_block_rejects_duplicate_blocks() {
     let error = existing_managed_block(&format!("{block}\n{block}")).expect_err("duplicate blocks");
 
     assert!(error.contains("duplicate"));
+}
+
+#[test]
+fn existing_managed_block_span_supports_exact_replacement() {
+    let existing_block = managed_block("export PATH='/old'");
+    let content = format!("before\n{existing_block}\nafter\n");
+    let span = existing_managed_block_span(&content)
+        .expect("detect block")
+        .expect("block exists");
+
+    assert_eq!(&content[span], existing_block);
+    assert_eq!(
+        replaced_profile_content(&content, &managed_block("export PATH='/new'"))
+            .expect("replace block"),
+        "before\n# >>> patholog PATH >>>\nexport PATH='/new'\n# <<< patholog PATH <<<\nafter\n"
+    );
+}
+
+#[test]
+fn appended_profile_content_preserves_existing_text_with_separator() {
+    let block = managed_block("export PATH='/new'");
+
+    assert_eq!(
+        appended_profile_content("", &block),
+        "# >>> patholog PATH >>>\nexport PATH='/new'\n# <<< patholog PATH <<<\n"
+    );
+    assert_eq!(
+        appended_profile_content("before\n", &block),
+        "before\n\n# >>> patholog PATH >>>\nexport PATH='/new'\n# <<< patholog PATH <<<\n"
+    );
+    assert_eq!(
+        appended_profile_content("before", &block),
+        "before\n\n# >>> patholog PATH >>>\nexport PATH='/new'\n# <<< patholog PATH <<<\n"
+    );
+}
+
+#[test]
+fn backup_path_for_seconds_adds_collision_suffixes() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".zshrc");
+    let first = directory.path().join(".zshrc.patholog-backup.123");
+    std::fs::write(&first, "backup").expect("write backup");
+
+    assert_eq!(
+        backup_path_for_seconds(&profile, 123),
+        directory.path().join(".zshrc.patholog-backup.123.1")
+    );
+}
+
+#[test]
+fn write_apply_plan_creates_parent_directories_and_profile() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".config/fish/config.fish");
+    let plan = plan_apply(&ApplyPlanOptions {
+        path_value: "/a:/b:/a",
+        platform_mode: PlatformMode::Posix,
+        pathext: None,
+        shell: ShellKind::Fish,
+        home_dir: Some(directory.path()),
+        user_profile_dir: Some(directory.path()),
+        profile: Some(&profile),
+        policy: PathPolicy::default(),
+    })
+    .expect("plan apply");
+
+    let outcome = write_apply_plan(plan, true).expect("write apply");
+
+    assert!(outcome.wrote);
+    assert!(!outcome.backup_created);
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "# >>> patholog PATH >>>\nset -gx PATH '/a' '/b'\n# <<< patholog PATH <<<\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn write_apply_plan_preserves_existing_profile_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, "before\n").expect("write profile");
+    let mut permissions = std::fs::metadata(&profile)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o640);
+    std::fs::set_permissions(&profile, permissions).expect("set permissions");
+    let plan = plan(
+        directory.path(),
+        Some(&profile),
+        PlatformMode::Posix,
+        ShellKind::Bash,
+    )
+    .expect("plan apply");
+
+    write_apply_plan(plan, false).expect("write apply");
+
+    assert_eq!(
+        std::fs::metadata(&profile)
+            .expect("read metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o640
+    );
 }
 
 fn plan(

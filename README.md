@@ -4,7 +4,7 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 [![Test](https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg)](https://github.com/techouse/patholog/actions/workflows/test.yml)
 
-`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and plans safe profile repairs without mutating shell configuration.
+`patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
 ## Quick Examples
 
@@ -19,6 +19,7 @@ patholog clean --stdout --drop /sw/bin
 patholog clean --export --var manpath --shell zsh
 patholog clean --export --shell zsh
 patholog apply --dry-run --shell zsh
+patholog apply --shell zsh --yes
 patholog completions zsh
 ```
 
@@ -46,10 +47,11 @@ patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
 patholog clean --stdout [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
 patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
 patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
 patholog completions zsh|bash|fish|pwsh
 ```
 
-`patholog` does not mutate shell profiles, environment variables, or files.
+`patholog` mutates files only for `apply --yes`. Other commands do not edit shell profiles, environment variables, or files.
 
 ## Read-Only Diagnostics
 
@@ -71,7 +73,7 @@ patholog scan --home /tmp/example-home
 
 ## Output Modes
 
-Human output is the default. JSON output is available for `print`, `doctor`, `why`, `conflicts`, `scan`, and `apply --dry-run`:
+Human output is the default. JSON output is available for `print`, `doctor`, `why`, `conflicts`, `scan`, and `apply`:
 
 ```sh
 patholog doctor --json
@@ -92,12 +94,14 @@ patholog clean --export --var manpath --shell zsh
 patholog completions zsh
 ```
 
-`apply --dry-run` plans a future shell profile edit without writing files:
+`apply --dry-run` plans a shell profile edit without writing files. `apply --yes` writes the same managed block, creates backups for existing profiles by default, and never rewrites arbitrary PATH lines outside the patholog block:
 
 ```sh
 patholog apply --dry-run --shell zsh
 patholog apply --dry-run --shell zsh --json
 patholog apply --dry-run --shell zsh --drop /sw/bin
+patholog apply --shell zsh --yes
+patholog apply --shell zsh --yes --no-backup
 ```
 
 `--preset fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. `homebrew`, `cargo`, and `pyenv` presets enable ecosystem policy checks without automatically reordering entries.
@@ -121,7 +125,7 @@ PATH values are handled as UTF-8 strings to preserve v0.1 parity. Symlinks, inod
 
 ## Safety
 
-All commands are read-only except for writing output to stdout or stderr. `patholog` does not edit:
+All commands are read-only except `apply --yes`, which writes only the patholog-managed block in the selected shell profile. It does not edit:
 
 - `~/.zshrc`
 - `~/.bashrc`
@@ -129,7 +133,7 @@ All commands are read-only except for writing output to stdout or stderr. `patho
 - PowerShell profiles
 - system environment configuration
 
-`clean --stdout`, `clean --export`, `apply --dry-run`, and `completions` only print generated text. Applying or installing that output is a manual step.
+`clean --stdout`, `clean --export`, `apply --dry-run`, and `completions` only print generated text. Mutating `apply` requires `--yes` and backs up existing profiles unless `--no-backup` is passed.
 
 ## Development
 

@@ -1,6 +1,6 @@
 use crate::model::ShellKind;
 
-/// Planned profile edit action for read-only apply dry-runs.
+/// Planned profile edit action.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ApplyAction {
     /// The target profile does not exist and would be created by a future mutating apply.
@@ -23,7 +23,7 @@ impl ApplyAction {
     }
 }
 
-/// Read-only plan describing what a future apply operation would write.
+/// Plan describing what an apply operation would write.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApplyPlan {
     /// Shell syntax used by the planned block.
@@ -34,10 +34,23 @@ pub struct ApplyPlan {
     pub action: ApplyAction,
     /// Existing managed block when replacing one.
     pub existing_block: Option<String>,
-    /// Complete managed block that would be written by a future mutating apply.
+    /// Complete managed block that apply writes or would write.
     pub planned_block: String,
     /// Cleaned PATH value used to render the planned block.
     pub cleaned_path: String,
-    /// Whether this run writes files. Always false in v0.4.
+    /// Whether this run writes files.
     pub would_write: bool,
+}
+
+/// Result of a mutating apply run.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ApplyOutcome {
+    /// Apply plan that was executed.
+    pub plan: ApplyPlan,
+    /// Whether the profile was written.
+    pub wrote: bool,
+    /// Backup path when one was created.
+    pub backup_path: Option<String>,
+    /// Whether a backup file was created.
+    pub backup_created: bool,
 }

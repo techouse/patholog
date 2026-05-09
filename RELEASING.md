@@ -16,7 +16,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.5.2"
+   version="v0.6.0"
    git tag -a "$version" -m "Release $version"
    ```
 
