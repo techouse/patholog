@@ -69,6 +69,7 @@ pub(crate) fn write_apply_plan(
     create_backup: bool,
 ) -> Result<ApplyOutcome, String> {
     let profile_path = PathBuf::from(&plan.profile_path);
+    reject_symlink_profile(&profile_path)?;
     let existing_permissions = match plan.action {
         ApplyAction::CreateProfile => None,
         ApplyAction::AppendBlock | ApplyAction::ReplaceBlock => {
@@ -362,12 +363,23 @@ fn create_profile_backup_for_seconds(profile_path: &Path, seconds: u64) -> Resul
 
 fn copy_profile_backup(profile_path: &Path, backup_path: &Path) -> std::io::Result<()> {
     let mut source = File::open(profile_path)?;
-    let mut destination = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(backup_path)?;
+    let source_permissions = source.metadata()?.permissions();
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        options.mode(source_permissions.mode());
+    }
+    let mut destination = options.open(backup_path)?;
+    #[cfg(unix)]
+    destination.set_permissions(source_permissions)?;
     std::io::copy(&mut source, &mut destination)?;
-    destination.flush()
+    destination.flush()?;
+    #[cfg(not(unix))]
+    destination.set_permissions(source_permissions)?;
+    Ok(())
 }
 
 fn write_profile_atomically(
@@ -407,6 +419,9 @@ fn write_profile_atomically(
                 format!("apply could not set temporary profile permissions ({error})")
             })?;
     }
+    if mode == WriteMode::ReplaceExisting {
+        reject_symlink_profile(profile_path)?;
+    }
     match mode {
         WriteMode::CreateNew => temp_file.persist_noclobber(profile_path),
         WriteMode::ReplaceExisting => temp_file.persist(profile_path),
@@ -425,6 +440,21 @@ fn write_profile_atomically(
 enum WriteMode {
     CreateNew,
     ReplaceExisting,
+}
+
+fn reject_symlink_profile(profile_path: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(profile_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Err(format!(
+            "apply target profile is a symlink; refusing to write symlink path: {}",
+            profile_path.display()
+        )),
+        Ok(_metadata) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "apply target profile is not readable: {} ({error})",
+            profile_path.display()
+        )),
+    }
 }
 
 fn current_unix_seconds() -> u64 {

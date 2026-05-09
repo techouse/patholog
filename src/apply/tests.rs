@@ -337,6 +337,32 @@ fn create_profile_backup_uses_create_new_suffix_without_overwriting() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn create_profile_backup_preserves_source_permissions() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, "before\n").expect("write profile");
+    let mut permissions = std::fs::metadata(&profile)
+        .expect("read metadata")
+        .permissions();
+    permissions.set_mode(0o600);
+    std::fs::set_permissions(&profile, permissions).expect("set permissions");
+
+    let backup = create_profile_backup_for_seconds(&profile, 123).expect("create backup");
+
+    assert_eq!(
+        std::fs::metadata(&backup)
+            .expect("read backup metadata")
+            .permissions()
+            .mode()
+            & 0o777,
+        0o600
+    );
+}
+
 #[test]
 fn write_apply_plan_creates_parent_directories_and_profile() {
     let directory = tempfile::tempdir().expect("create tempdir");
@@ -386,6 +412,39 @@ fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning()
     assert_eq!(
         std::fs::read_to_string(&profile).expect("read profile"),
         "user-created\n"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn write_apply_plan_rejects_symlink_profile_without_replacing_link() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let target = directory.path().join("real.profile");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&target, "before\n").expect("write target profile");
+    symlink(&target, &profile).expect("create profile symlink");
+    let plan = plan(
+        directory.path(),
+        Some(&profile),
+        PlatformMode::Posix,
+        ShellKind::Bash,
+    )
+    .expect("plan apply");
+
+    let error = write_apply_plan(plan, true).expect_err("write should fail");
+
+    assert!(error.contains("symlink"));
+    assert!(
+        std::fs::symlink_metadata(&profile)
+            .expect("read symlink metadata")
+            .file_type()
+            .is_symlink()
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("read target profile"),
+        "before\n"
     );
 }
 
