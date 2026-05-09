@@ -118,6 +118,29 @@ v0.4 still defers:
 
 ---
 
+## 1.5 Fixpath-Inspired Policy Milestones (v0.5.x)
+
+v0.5.x adds opt-in cleanup policy inspired by old PATH repair scripts while keeping the read-first safety model.
+
+v0.5.x additive commands and flags:
+
+```bash
+patholog print [--var path|manpath]
+patholog doctor [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog clean --stdout [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog clean --export --shell zsh|bash|fish|pwsh [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+```
+
+v0.5.x still defers:
+
+* config-file policy
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic reordering
+* mutating `apply`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -270,6 +293,20 @@ patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|po
 ```
 
 `apply --dry-run` writes the planned profile action to stdout only.
+
+---
+
+## 4.4 v0.5.x Policy Additions
+
+```bash
+patholog print [--var path|manpath]
+patholog doctor [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog clean --stdout [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog clean --export --shell zsh|bash|fish|pwsh [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+```
+
+`--drop` and `--preset` are opt-in cleanup policy. They do not mutate files or reorder entries.
 
 ---
 
@@ -466,6 +503,8 @@ Exit code:
 
 ```bash
 patholog clean --stdout
+patholog clean --stdout --drop /sw/bin
+patholog clean --export --var manpath --shell zsh
 ```
 
 Produces a cleaned PATH representation.
@@ -474,6 +513,7 @@ Produces a cleaned PATH representation.
 
 * remove empty entries
 * remove later duplicates after comparison-key normalisation
+* remove entries matched by explicit `--drop` or drop-style presets
 * preserve original winning order for first occurrences
 * keep missing and non-directory entries
 
@@ -492,6 +532,13 @@ Produces a cleaned PATH representation.
   * print a shell-ready PATH assignment snippet
   * require an explicit shell to keep output deterministic
   * do not edit shell profiles or completion directories
+
+* `--var path|manpath`
+
+  * default to `path`
+  * switch `print`, `doctor`, and `clean` to `MANPATH` when set to `manpath`
+  * preserve empty MANPATH components because they can represent the system default manpath
+  * keep `apply`, `why`, `conflicts`, and `scan` PATH-only
 
 ### Example
 
@@ -576,6 +623,7 @@ Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`
 
 ```bash
 patholog apply --dry-run --shell zsh
+patholog apply --dry-run --shell zsh --drop /sw/bin
 ```
 
 Plans a future shell profile edit using a patholog-managed block. v0.4 requires `--dry-run` and never writes files.
@@ -587,6 +635,7 @@ Plans a future shell profile edit using a patholog-managed block. v0.4 requires 
 * choose an interactive profile by default
 * allow `--home <dir>` for deterministic default target selection
 * allow `--profile <file>` to override the target profile
+* allow `--drop <entry>` and drop-style presets for the planned PATH block
 * report `create_profile`, `append_block`, or `replace_block`
 * reject non-file, unreadable, malformed-block, or duplicate-block profiles
 
@@ -604,11 +653,27 @@ Exit code:
 
 ---
 
+## 5.9 `--drop` and `--preset`
+
+`--drop <entry>` is an exact opt-in cleanup rule for `doctor`, `clean`, and `apply --dry-run`.
+
+Behaviour:
+
+* match after existing platform comparison-key normalisation
+* do not use glob, regex, `~`, or environment expansion
+* report `unwanted` diagnostics in `doctor`
+* remove matching entries before first-win deduplication in `clean` and `apply --dry-run`
+
+`--preset homebrew|cargo|pyenv|fink` enables built-in policy. `homebrew`, `cargo`, and `pyenv` are diagnostic-only
+ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. Presets never reorder entries.
+
+---
+
 ## 6. v0.1 Safety Model
 
 ### Read-only by default
 
-All commands in v0.1 through v0.4 must be read-only except for printing proposed cleaned output and repair plans.
+All commands in v0.1 through v0.5.x must be read-only except for printing proposed cleaned output and repair plans.
 
 ### No automatic mutation
 
@@ -967,13 +1032,15 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.4
+## 15. Explicit Non-Goals for v0.1 through v0.5.x
 
 Do not implement yet:
 
 * automatic shell profile editing
 * mutating `apply`
 * PATH generation from declarative config
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic PATH reordering
 * daemon/background watcher
 * TUI
 * editor integration
@@ -985,7 +1052,7 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.4 features:
+Possible post-v0.5.x features:
 
 * mutating `apply --shell zsh|bash|fish|pwsh`
 * `why-not <command>` with install hints

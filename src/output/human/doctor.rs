@@ -3,7 +3,11 @@ use crate::model::{Diagnostic, DoctorReport, IssueKind};
 use super::shared::finish_lines;
 
 pub(crate) fn format_doctor(report: &DoctorReport) -> String {
-    let mut lines = vec![format!("PATH entries: {}", report.entries.len())];
+    let mut lines = vec![format!(
+        "{} entries: {}",
+        report.variable.env_name(),
+        report.entries.len()
+    )];
     if report.diagnostics.is_empty() {
         lines.push(String::new());
         lines.push("No issues found.".to_owned());
@@ -36,6 +40,13 @@ pub(crate) fn format_doctor(report: &DoctorReport) -> String {
         "Unreadable directories:",
         &report.diagnostics,
         IssueKind::Unreadable,
+        format_indexed,
+    );
+    append_diagnostic_group(
+        &mut lines,
+        "Unwanted entries:",
+        &report.diagnostics,
+        IssueKind::Unwanted,
         format_indexed,
     );
     append_diagnostic_group(

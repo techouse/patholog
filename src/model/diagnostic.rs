@@ -17,6 +17,8 @@ pub enum IssueKind {
     SuspiciousOrder,
     /// A command candidate hidden by an earlier PATH entry.
     ShadowedCommand,
+    /// PATH-like entry explicitly selected for removal.
+    Unwanted,
 }
 
 impl IssueKind {
@@ -31,6 +33,7 @@ impl IssueKind {
             Self::Unreadable => "unreadable",
             Self::SuspiciousOrder => "suspicious_order",
             Self::ShadowedCommand => "shadowed_command",
+            Self::Unwanted => "unwanted",
         }
     }
 }

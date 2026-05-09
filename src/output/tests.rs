@@ -1,7 +1,7 @@
 use crate::model::{
     ApplyAction, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry, PathMutation,
-    RelatedExecutableHint, ResolutionCandidate, ResolutionReport, ShellKind, ShellProfile,
-    ShellProfileScanReport,
+    PathVariable, RelatedExecutableHint, ResolutionCandidate, ResolutionReport, ShellKind,
+    ShellProfile, ShellProfileScanReport,
 };
 
 use super::human::{
@@ -15,6 +15,7 @@ use super::json::{
 #[test]
 fn format_doctor_groups_diagnostics_in_contract_order() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: vec![entry(1, "/a"), entry(2, "")],
         diagnostics: vec![
             Diagnostic {
@@ -43,6 +44,7 @@ fn format_doctor_groups_diagnostics_in_contract_order() {
 #[test]
 fn format_doctor_reports_no_issues() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: vec![entry(1, "/ok")],
         diagnostics: Vec::new(),
     };
@@ -56,6 +58,7 @@ fn format_doctor_reports_no_issues() {
 #[test]
 fn format_doctor_renders_ordering_messages() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: Vec::new(),
         diagnostics: vec![Diagnostic {
             kind: IssueKind::SuspiciousOrder,
@@ -75,6 +78,7 @@ fn format_doctor_renders_ordering_messages() {
 #[test]
 fn format_doctor_renders_shadowed_command_messages() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: Vec::new(),
         diagnostics: vec![Diagnostic {
             kind: IssueKind::ShadowedCommand,
@@ -88,6 +92,26 @@ fn format_doctor_renders_shadowed_command_messages() {
     assert_eq!(
         format_doctor(&report),
         "PATH entries: 0\n\nShadowed commands:\n  tool at /b/tool is shadowed by /a/tool\n"
+    );
+}
+
+#[test]
+fn format_doctor_renders_unwanted_entries_and_variable_name() {
+    let report = DoctorReport {
+        variable: PathVariable::Manpath,
+        entries: vec![entry(1, "/sw/share/man")],
+        diagnostics: vec![Diagnostic {
+            kind: IssueKind::Unwanted,
+            message: "/sw/share/man is marked for removal".to_owned(),
+            entry_index: Some(1),
+            entry_value: Some("/sw/share/man".to_owned()),
+            related_indexes: vec![1],
+        }],
+    };
+
+    assert_eq!(
+        format_doctor(&report),
+        "MANPATH entries: 1\n\nUnwanted entries:\n  1  /sw/share/man\n"
     );
 }
 
@@ -144,6 +168,7 @@ fn format_conflicts_reports_no_matches() {
 #[test]
 fn dumps_json_uses_sorted_keys_pretty_indentation_and_trailing_newline() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: vec![entry(1, "/a")],
         diagnostics: Vec::new(),
     };
@@ -152,11 +177,13 @@ fn dumps_json_uses_sorted_keys_pretty_indentation_and_trailing_newline() {
 
     assert!(output.ends_with('\n'));
     assert!(output.starts_with("{\n  \"diagnostics\": []"));
+    assert!(output.contains("\"variable\": \"path\""));
 }
 
 #[test]
 fn json_output_classifies_entry_kinds_and_missing_winner() {
     let report = DoctorReport {
+        variable: PathVariable::Path,
         entries: vec![
             entry(1, ""),
             entry_with_state(2, "/missing", false, false, false),
@@ -178,6 +205,38 @@ fn json_output_classifies_entry_kinds_and_missing_winner() {
     assert!(doctor.contains("\"kind\": \"missing\""));
     assert!(doctor.contains("\"kind\": \"not_directory\""));
     assert!(resolution.contains("\"winner\": null"));
+}
+
+#[test]
+fn doctor_json_includes_report_variable() {
+    let report = DoctorReport {
+        variable: PathVariable::Manpath,
+        entries: vec![entry(1, "/usr/share/man")],
+        diagnostics: Vec::new(),
+    };
+
+    let output = dumps_json(&doctor_to_json(&report)).expect("render doctor json");
+
+    assert!(output.contains("\"variable\": \"manpath\""));
+}
+
+#[test]
+fn doctor_json_includes_unwanted_issue_kind() {
+    let report = DoctorReport {
+        variable: PathVariable::Path,
+        entries: vec![entry(1, "/sw/bin")],
+        diagnostics: vec![Diagnostic {
+            kind: IssueKind::Unwanted,
+            message: "/sw/bin is marked for removal".to_owned(),
+            entry_index: Some(1),
+            entry_value: Some("/sw/bin".to_owned()),
+            related_indexes: vec![1],
+        }],
+    };
+
+    let output = dumps_json(&doctor_to_json(&report)).expect("render doctor json");
+
+    assert!(output.contains("\"kind\": \"unwanted\""));
 }
 
 #[test]

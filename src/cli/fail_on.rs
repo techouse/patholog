@@ -1,7 +1,6 @@
 use crate::model::IssueKind;
 
-const SUPPORTED_ISSUE_KIND_VALUES: &str =
-    "duplicate, empty, missing, not_directory, unreadable, suspicious_order, shadowed_command";
+const SUPPORTED_ISSUE_KIND_VALUES: &str = "duplicate, empty, missing, not_directory, unreadable, suspicious_order, shadowed_command, unwanted";
 
 pub(super) fn parse_fail_on(value: &str) -> Result<Vec<IssueKind>, String> {
     if value.is_empty() {
@@ -35,6 +34,7 @@ fn issue_kind_by_value(value: &str) -> Option<IssueKind> {
         "unreadable" => Some(IssueKind::Unreadable),
         "suspicious_order" => Some(IssueKind::SuspiciousOrder),
         "shadowed_command" => Some(IssueKind::ShadowedCommand),
+        "unwanted" => Some(IssueKind::Unwanted),
         _ => None,
     }
 }

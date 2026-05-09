@@ -2,6 +2,25 @@
 
 All notable changes to patholog are documented here.
 
+## 0.5.2 - 2026-05-05
+
+- Added `--preset homebrew|cargo|pyenv|fink` to `doctor`, `clean`, and `apply --dry-run`.
+- Added fink preset drop rules for PATH (`/sw/bin`, `/sw/sbin`) and MANPATH (`/sw/share/man`).
+- Added preset CLI and fuzz coverage while keeping presets read-only and non-reordering.
+
+## 0.5.1 - 2026-05-05
+
+- Added `--var path|manpath` to `print`, `doctor`, and `clean`.
+- Added `MANPATH` support in injected CLI context and shell export snippets.
+- Preserved empty MANPATH components during cleaning because common man implementations treat them as default-manpath placeholders.
+- Kept `apply`, `scan`, `why`, `conflicts`, and `doctor --command` PATH-only.
+
+## 0.5.0 - 2026-05-05
+
+- Added repeatable `--drop <entry>` to `doctor`, `clean`, and `apply --dry-run`.
+- Added `unwanted` diagnostics and `doctor --fail-on=unwanted`.
+- Added policy-filtered cleaning before first-win deduplication.
+
 ## 0.4.0 - 2026-05-04
 
 - Added read-only `apply --dry-run --shell zsh|bash|fish|pwsh` profile repair planning.

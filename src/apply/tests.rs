@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::model::{ApplyAction, PlatformMode, ShellKind};
+use crate::policy::PathPolicy;
 
 use super::{
     ApplyPlanOptions, END_MARKER, START_MARKER, existing_managed_block, managed_block, plan_apply,
@@ -52,6 +53,7 @@ fn plan_apply_uses_windows_user_profile_for_pwsh_windows_mode() {
         home_dir: None,
         user_profile_dir: Some(&user_profile),
         profile: None,
+        policy: PathPolicy::default(),
     })
     .expect("plan apply");
 
@@ -83,6 +85,7 @@ fn plan_apply_uses_home_for_posix_shells_in_windows_mode() {
             home_dir: Some(&home),
             user_profile_dir: Some(&user_profile),
             profile: None,
+            policy: PathPolicy::default(),
         })
         .expect("plan apply");
 
@@ -105,6 +108,7 @@ fn plan_apply_profile_override_does_not_require_home() {
         home_dir: None,
         user_profile_dir: None,
         profile: Some(&profile),
+        policy: PathPolicy::default(),
     })
     .expect("plan apply");
 
@@ -246,5 +250,6 @@ fn plan(
         home_dir: Some(home),
         user_profile_dir: Some(home),
         profile,
+        policy: PathPolicy::default(),
     })
 }
