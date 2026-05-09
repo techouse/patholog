@@ -4,9 +4,9 @@ use crate::model::{ApplyAction, PlatformMode, ShellKind};
 use crate::policy::PathPolicy;
 
 use super::{
-    ApplyPlanOptions, END_MARKER, START_MARKER, appended_profile_content, backup_path_for_seconds,
-    existing_managed_block, existing_managed_block_span, managed_block, plan_apply,
-    replaced_profile_content, write_apply_plan,
+    ApplyPlanOptions, END_MARKER, START_MARKER, appended_profile_content, backup_path_candidate,
+    create_profile_backup_for_seconds, existing_managed_block, existing_managed_block_span,
+    managed_block, plan_apply, replaced_profile_content, write_apply_plan,
 };
 
 #[test]
@@ -303,15 +303,37 @@ fn appended_profile_content_preserves_crlf_line_endings() {
 }
 
 #[test]
-fn backup_path_for_seconds_adds_collision_suffixes() {
+fn backup_path_for_seconds_uses_base_name() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".zshrc");
-    let first = directory.path().join(".zshrc.patholog-backup.123");
-    std::fs::write(&first, "backup").expect("write backup");
 
     assert_eq!(
-        backup_path_for_seconds(&profile, 123),
-        directory.path().join(".zshrc.patholog-backup.123.1")
+        backup_path_candidate(&profile, 123, 0),
+        directory.path().join(".zshrc.patholog-backup.123")
+    );
+}
+
+#[test]
+fn create_profile_backup_uses_create_new_suffix_without_overwriting() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    let first_backup = backup_path_candidate(&profile, 123, 0);
+    std::fs::write(&profile, "before\n").expect("write profile");
+    std::fs::write(&first_backup, "existing backup\n").expect("write backup");
+
+    let backup = create_profile_backup_for_seconds(&profile, 123).expect("create backup");
+
+    assert_eq!(
+        std::fs::read_to_string(&first_backup).expect("read original backup"),
+        "existing backup\n"
+    );
+    assert_eq!(
+        backup,
+        directory.path().join(".bashrc.patholog-backup.123.1")
+    );
+    assert_eq!(
+        std::fs::read_to_string(&backup).expect("read new backup"),
+        "before\n"
     );
 }
 

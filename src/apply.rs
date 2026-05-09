@@ -1,4 +1,4 @@
-use std::fs::{self, Permissions};
+use std::fs::{self, File, OpenOptions, Permissions};
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -253,20 +253,18 @@ pub(crate) fn replaced_profile_content(
     Ok(content)
 }
 
-pub(crate) fn backup_path_for_seconds(profile_path: &Path, seconds: u64) -> PathBuf {
+fn backup_path_candidate(profile_path: &Path, seconds: u64, suffix: usize) -> PathBuf {
     let parent = profile_parent(profile_path);
     let file_name = profile_path
         .file_name()
         .map(|name| name.to_string_lossy())
         .unwrap_or_else(|| "profile".into());
     let base_name = format!("{file_name}.patholog-backup.{seconds}");
-    let mut candidate = parent.join(&base_name);
-    let mut suffix = 1;
-    while candidate.exists() {
-        candidate = parent.join(format!("{base_name}.{suffix}"));
-        suffix += 1;
+    if suffix == 0 {
+        parent.join(base_name)
+    } else {
+        parent.join(format!("{base_name}.{suffix}"))
     }
-    candidate
 }
 
 fn marker_offsets(content: &str, marker: &str) -> Vec<usize> {
@@ -339,15 +337,37 @@ fn profile_permissions(profile_path: &Path) -> Result<Permissions, String> {
 }
 
 fn create_profile_backup(profile_path: &Path) -> Result<PathBuf, String> {
-    let backup_path = backup_path_for_seconds(profile_path, current_unix_seconds());
-    fs::copy(profile_path, &backup_path).map_err(|error| {
-        format!(
-            "apply backup failed for {}: {} ({error})",
-            profile_path.display(),
-            backup_path.display()
-        )
-    })?;
-    Ok(backup_path)
+    create_profile_backup_for_seconds(profile_path, current_unix_seconds())
+}
+
+fn create_profile_backup_for_seconds(profile_path: &Path, seconds: u64) -> Result<PathBuf, String> {
+    let mut suffix = 0;
+    loop {
+        let backup_path = backup_path_candidate(profile_path, seconds, suffix);
+        match copy_profile_backup(profile_path, &backup_path) {
+            Ok(()) => return Ok(backup_path),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                suffix += 1;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "apply backup failed for {}: {} ({error})",
+                    profile_path.display(),
+                    backup_path.display()
+                ));
+            }
+        }
+    }
+}
+
+fn copy_profile_backup(profile_path: &Path, backup_path: &Path) -> std::io::Result<()> {
+    let mut source = File::open(profile_path)?;
+    let mut destination = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(backup_path)?;
+    std::io::copy(&mut source, &mut destination)?;
+    destination.flush()
 }
 
 fn write_profile_atomically(
