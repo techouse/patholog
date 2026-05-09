@@ -255,6 +255,22 @@ fn existing_managed_block_span_supports_exact_replacement() {
 }
 
 #[test]
+fn replaced_profile_content_preserves_crlf_line_endings() {
+    let existing_block = "# >>> patholog PATH >>>\r\nexport PATH='/old'\r\n# <<< patholog PATH <<<";
+    let content = format!("before\r\n{existing_block}\r\nafter\r\n");
+    let planned_block = managed_block("export PATH='/new'");
+    let span = existing_managed_block_span(&content)
+        .expect("detect block")
+        .expect("block exists");
+
+    assert_eq!(&content[span], format!("{existing_block}\r"));
+    assert_eq!(
+        replaced_profile_content(&content, &planned_block).expect("replace block"),
+        "before\r\n# >>> patholog PATH >>>\r\nexport PATH='/new'\r\n# <<< patholog PATH <<<\r\nafter\r\n"
+    );
+}
+
+#[test]
 fn appended_profile_content_preserves_existing_text_with_separator() {
     let block = managed_block("export PATH='/new'");
 

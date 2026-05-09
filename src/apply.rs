@@ -240,10 +240,16 @@ pub(crate) fn replaced_profile_content(
     let Some(span) = existing_managed_block_span(existing)? else {
         return Err("apply target profile changed before write; rerun apply".to_owned());
     };
+    let line_ending = line_ending_for(existing);
+    let planned_block = planned_block_with_line_ending(planned_block, line_ending);
+    let suffix = &existing[span.end..];
     let mut content = String::with_capacity(existing.len() + planned_block.len());
     content.push_str(&existing[..span.start]);
-    content.push_str(planned_block);
-    content.push_str(&existing[span.end..]);
+    content.push_str(&planned_block);
+    if line_ending == "\r\n" && suffix.starts_with('\n') {
+        content.push('\r');
+    }
+    content.push_str(suffix);
     Ok(content)
 }
 
