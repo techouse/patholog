@@ -83,7 +83,11 @@ pub(crate) fn write_apply_plan(
         _ => None,
     };
 
-    write_profile_atomically(&profile_path, &content, existing_permissions)?;
+    let write_mode = match plan.action {
+        ApplyAction::CreateProfile => WriteMode::CreateNew,
+        ApplyAction::AppendBlock | ApplyAction::ReplaceBlock => WriteMode::ReplaceExisting,
+    };
+    write_profile_atomically(&profile_path, &content, existing_permissions, write_mode)?;
     plan.would_write = true;
 
     let backup_created = backup_path.is_some();
@@ -326,6 +330,7 @@ fn write_profile_atomically(
     profile_path: &Path,
     content: &str,
     permissions: Option<Permissions>,
+    mode: WriteMode,
 ) -> Result<(), String> {
     let parent = profile_parent(profile_path);
     fs::create_dir_all(parent).map_err(|error| {
@@ -358,7 +363,11 @@ fn write_profile_atomically(
                 format!("apply could not set temporary profile permissions ({error})")
             })?;
     }
-    temp_file.persist(profile_path).map_err(|error| {
+    match mode {
+        WriteMode::CreateNew => temp_file.persist_noclobber(profile_path),
+        WriteMode::ReplaceExisting => temp_file.persist(profile_path),
+    }
+    .map_err(|error| {
         format!(
             "apply could not write profile: {} ({})",
             profile_path.display(),
@@ -366,6 +375,12 @@ fn write_profile_atomically(
         )
     })?;
     Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WriteMode {
+    CreateNew,
+    ReplaceExisting,
 }
 
 fn current_unix_seconds() -> u64 {

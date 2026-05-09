@@ -311,6 +311,32 @@ fn write_apply_plan_creates_parent_directories_and_profile() {
     );
 }
 
+#[test]
+fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".zshrc");
+    let plan = plan_apply(&ApplyPlanOptions {
+        path_value: "/a:/b:/a",
+        platform_mode: PlatformMode::Posix,
+        pathext: None,
+        shell: ShellKind::Zsh,
+        home_dir: Some(directory.path()),
+        user_profile_dir: Some(directory.path()),
+        profile: Some(&profile),
+        policy: PathPolicy::default(),
+    })
+    .expect("plan apply");
+    std::fs::write(&profile, "user-created\n").expect("write competing profile");
+
+    let error = write_apply_plan(plan, true).expect_err("write should fail");
+
+    assert!(error.contains("changed before write") || error.contains("could not write profile"));
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "user-created\n"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn write_apply_plan_preserves_existing_profile_permissions() {
