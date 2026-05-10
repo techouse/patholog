@@ -26,6 +26,7 @@ pub(crate) struct ApplyPlanOptions<'a> {
 
 pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, String> {
     let profile_path = target_profile(options)?;
+    reject_symlink_profile(&profile_path)?;
     let cleaned = clean_with_policy(
         options.path_value,
         options.platform_mode,
@@ -445,7 +446,7 @@ enum WriteMode {
 fn reject_symlink_profile(profile_path: &Path) -> Result<(), String> {
     match fs::symlink_metadata(profile_path) {
         Ok(metadata) if metadata.file_type().is_symlink() => Err(format!(
-            "apply target profile is a symlink; refusing to write symlink path: {}",
+            "apply target profile is a symlink; use --profile with the resolved target path: {}",
             profile_path.display()
         )),
         Ok(_metadata) => Ok(()),

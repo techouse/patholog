@@ -417,7 +417,7 @@ fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning()
 
 #[cfg(unix)]
 #[test]
-fn write_apply_plan_rejects_symlink_profile_without_replacing_link() {
+fn plan_apply_rejects_symlink_profile() {
     use std::os::unix::fs::symlink;
 
     let directory = tempfile::tempdir().expect("create tempdir");
@@ -425,15 +425,14 @@ fn write_apply_plan_rejects_symlink_profile_without_replacing_link() {
     let profile = directory.path().join(".bashrc");
     std::fs::write(&target, "before\n").expect("write target profile");
     symlink(&target, &profile).expect("create profile symlink");
-    let plan = plan(
+
+    let error = plan(
         directory.path(),
         Some(&profile),
         PlatformMode::Posix,
         ShellKind::Bash,
     )
-    .expect("plan apply");
-
-    let error = write_apply_plan(plan, true).expect_err("write should fail");
+    .expect_err("plan should fail");
 
     assert!(error.contains("symlink"));
     assert!(

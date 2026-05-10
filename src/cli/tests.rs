@@ -726,6 +726,33 @@ fn apply_rejects_unreadable_profile() {
     assert!(result.stderr.contains("not readable"));
 }
 
+#[cfg(unix)]
+#[test]
+fn apply_dry_run_rejects_symlink_profile() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let target = directory.path().join("real.profile");
+    let profile = directory.path().join("profile");
+    std::fs::write(&target, "export PATH=\"$PATH\"\n").expect("write target");
+    symlink(&target, &profile).expect("create profile symlink");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+        ],
+        context("/a:/b", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("symlink"));
+}
+
 #[test]
 fn apply_rejects_malformed_or_duplicate_managed_blocks() {
     let directory = tempfile::tempdir().expect("create tempdir");
