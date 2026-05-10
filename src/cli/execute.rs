@@ -2,7 +2,7 @@ use std::path::Path;
 
 use clap::CommandFactory;
 
-use crate::apply::{ApplyPlanOptions, plan_apply, write_apply_plan};
+use crate::apply::{ApplyPlanOptions, plan_apply_operation, write_apply_plan};
 use crate::clean::{clean_export_with_policy, clean_path_with_policy};
 use crate::doctor::{diagnose_command_path_with_policy, diagnose_path_with_policy};
 use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
@@ -222,7 +222,7 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         .home
         .as_deref()
         .or_else(|| apply_user_profile_dir(options.common.platform, context));
-    let plan = match plan_apply(&ApplyPlanOptions {
+    let planned = match plan_apply_operation(&ApplyPlanOptions {
         path_value: &context.path_value,
         platform_mode: options.common.platform,
         pathext: context.pathext.as_deref(),
@@ -232,23 +232,23 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         profile: options.profile.as_deref(),
         policy,
     }) {
-        Ok(plan) => plan,
+        Ok(planned) => planned,
         Err(message) => return CliResult::error(message),
     };
     if options.common.json {
         if options.dry_run {
-            return json_result(apply_plan_to_json(&plan));
+            return json_result(apply_plan_to_json(&planned.plan));
         }
-        let outcome = match write_apply_plan(plan, !options.no_backup) {
+        let outcome = match write_apply_plan(planned, !options.no_backup) {
             Ok(outcome) => outcome,
             Err(message) => return CliResult::error(message),
         };
         return json_result(apply_outcome_to_json(&outcome));
     }
     if options.dry_run {
-        return CliResult::success(format_apply_plan(&plan));
+        return CliResult::success(format_apply_plan(&planned.plan));
     }
-    match write_apply_plan(plan, !options.no_backup) {
+    match write_apply_plan(planned, !options.no_backup) {
         Ok(outcome) => CliResult::success(format_apply_outcome(&outcome)),
         Err(message) => CliResult::error(message),
     }

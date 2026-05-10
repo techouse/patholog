@@ -6,7 +6,7 @@ use crate::policy::PathPolicy;
 use super::{
     ApplyPlanOptions, END_MARKER, START_MARKER, appended_profile_content, backup_path_candidate,
     create_profile_backup_for_seconds, existing_managed_block, existing_managed_block_span,
-    managed_block, plan_apply, replaced_profile_content, write_apply_plan,
+    managed_block, plan_apply, plan_apply_operation, replaced_profile_content, write_apply_plan,
 };
 
 #[test]
@@ -367,7 +367,7 @@ fn create_profile_backup_preserves_source_permissions() {
 fn write_apply_plan_creates_parent_directories_and_profile() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".config/fish/config.fish");
-    let plan = plan_apply(&ApplyPlanOptions {
+    let planned = plan_apply_operation(&ApplyPlanOptions {
         path_value: "/a:/b:/a",
         platform_mode: PlatformMode::Posix,
         pathext: None,
@@ -379,7 +379,7 @@ fn write_apply_plan_creates_parent_directories_and_profile() {
     })
     .expect("plan apply");
 
-    let outcome = write_apply_plan(plan, true).expect("write apply");
+    let outcome = write_apply_plan(planned, true).expect("write apply");
 
     assert!(outcome.wrote);
     assert!(!outcome.backup_created);
@@ -393,7 +393,7 @@ fn write_apply_plan_creates_parent_directories_and_profile() {
 fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".zshrc");
-    let plan = plan_apply(&ApplyPlanOptions {
+    let planned = plan_apply_operation(&ApplyPlanOptions {
         path_value: "/a:/b:/a",
         platform_mode: PlatformMode::Posix,
         pathext: None,
@@ -406,12 +406,42 @@ fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning()
     .expect("plan apply");
     std::fs::write(&profile, "user-created\n").expect("write competing profile");
 
-    let error = write_apply_plan(plan, true).expect_err("write should fail");
+    let error = write_apply_plan(planned, true).expect_err("write should fail");
 
     assert!(error.contains("changed before write") || error.contains("could not write profile"));
     assert_eq!(
         std::fs::read_to_string(&profile).expect("read profile"),
         "user-created\n"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn write_apply_plan_uses_raw_non_utf8_profile_path() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory
+        .path()
+        .join(OsString::from_vec(b"profile-\xff".to_vec()));
+    let planned = plan_apply_operation(&ApplyPlanOptions {
+        path_value: "/a:/b:/a",
+        platform_mode: PlatformMode::Posix,
+        pathext: None,
+        shell: ShellKind::Zsh,
+        home_dir: Some(directory.path()),
+        user_profile_dir: Some(directory.path()),
+        profile: Some(&profile),
+        policy: PathPolicy::default(),
+    })
+    .expect("plan apply");
+
+    write_apply_plan(planned, true).expect("write apply");
+
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read non-utf8 profile"),
+        "# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
     );
 }
 
@@ -460,7 +490,7 @@ fn write_apply_plan_preserves_existing_profile_permissions() {
         .permissions();
     permissions.set_mode(0o640);
     std::fs::set_permissions(&profile, permissions).expect("set permissions");
-    let plan = plan(
+    let planned = planned(
         directory.path(),
         Some(&profile),
         PlatformMode::Posix,
@@ -468,7 +498,7 @@ fn write_apply_plan_preserves_existing_profile_permissions() {
     )
     .expect("plan apply");
 
-    write_apply_plan(plan, false).expect("write apply");
+    write_apply_plan(planned, false).expect("write apply");
 
     assert_eq!(
         std::fs::metadata(&profile)
@@ -480,13 +510,13 @@ fn write_apply_plan_preserves_existing_profile_permissions() {
     );
 }
 
-fn plan(
+fn planned(
     home: &Path,
     profile: Option<&Path>,
     platform_mode: PlatformMode,
     shell: ShellKind,
-) -> Result<crate::model::ApplyPlan, String> {
-    plan_apply(&ApplyPlanOptions {
+) -> Result<super::PlannedApply, String> {
+    plan_apply_operation(&ApplyPlanOptions {
         path_value: "/a:/b:/a",
         platform_mode,
         pathext: None,
@@ -496,4 +526,13 @@ fn plan(
         profile,
         policy: PathPolicy::default(),
     })
+}
+
+fn plan(
+    home: &Path,
+    profile: Option<&Path>,
+    platform_mode: PlatformMode,
+    shell: ShellKind,
+) -> Result<crate::model::ApplyPlan, String> {
+    planned(home, profile, platform_mode, shell).map(|planned| planned.plan)
 }

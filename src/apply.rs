@@ -24,7 +24,18 @@ pub(crate) struct ApplyPlanOptions<'a> {
     pub(crate) policy: PathPolicy,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlannedApply {
+    pub(crate) plan: ApplyPlan,
+    profile_path: PathBuf,
+}
+
+#[cfg(test)]
 pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, String> {
+    plan_apply_operation(options).map(|planned| planned.plan)
+}
+
+pub(crate) fn plan_apply_operation(options: &ApplyPlanOptions<'_>) -> Result<PlannedApply, String> {
     let profile_path = target_profile(options)?;
     reject_symlink_profile(&profile_path)?;
     let cleaned = clean_with_policy(
@@ -41,7 +52,7 @@ pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, St
         PathVariable::Path,
     ));
 
-    match fs::metadata(&profile_path) {
+    let plan = match fs::metadata(&profile_path) {
         Ok(metadata) if !metadata.is_file() => Err(format!(
             "apply target profile is not a file: {}",
             profile_path.display()
@@ -62,14 +73,17 @@ pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, St
             "apply target profile is not readable: {} ({error})",
             profile_path.display()
         )),
-    }
+    }?;
+
+    Ok(PlannedApply { plan, profile_path })
 }
 
 pub(crate) fn write_apply_plan(
-    mut plan: ApplyPlan,
+    planned: PlannedApply,
     create_backup: bool,
 ) -> Result<ApplyOutcome, String> {
-    let profile_path = PathBuf::from(&plan.profile_path);
+    let mut plan = planned.plan;
+    let profile_path = planned.profile_path;
     reject_symlink_profile(&profile_path)?;
     let existing_permissions = match plan.action {
         ApplyAction::CreateProfile => None,
