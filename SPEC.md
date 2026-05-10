@@ -141,6 +141,28 @@ v0.5.x still defers:
 
 ---
 
+## 1.6 Safe Mutating Apply Milestone (v0.6)
+
+v0.6 allows `apply` to write the same patholog-managed block produced by dry-run planning. Mutation is explicitly gated
+by `--yes`, backs up existing profiles by default, and does not rewrite arbitrary PATH lines.
+
+v0.6 apply commands and flags:
+
+```bash
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+```
+
+v0.6 still defers:
+
+* config-file policy
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic reordering
+* arbitrary shell profile PATH-line rewriting
+* long-running `watch`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -307,6 +329,16 @@ patholog apply --dry-run --shell zsh|bash|fish|pwsh [--drop <entry>] [--preset h
 ```
 
 `--drop` and `--preset` are opt-in cleanup policy. They do not mutate files or reorder entries.
+
+---
+
+## 4.5 v0.6 Safe Apply Addition
+
+```bash
+patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+```
+
+`apply --yes` writes only the patholog-managed PATH block. Existing profiles are backed up by default.
 
 ---
 
@@ -624,20 +656,24 @@ Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`
 ```bash
 patholog apply --dry-run --shell zsh
 patholog apply --dry-run --shell zsh --drop /sw/bin
+patholog apply --shell zsh --yes
+patholog apply --shell zsh --yes --no-backup
 ```
 
-Plans a future shell profile edit using a patholog-managed block. v0.4 requires `--dry-run` and never writes files.
+Plans or writes a shell profile edit using a patholog-managed block. Mutating apply requires `--yes`.
 
 ### Behaviour
 
-* require `--dry-run`
+* require exactly one of `--dry-run` or `--yes`
 * require explicit `--shell zsh|bash|fish|pwsh`
 * choose an interactive profile by default
 * allow `--home <dir>` for deterministic default target selection
 * allow `--profile <file>` to override the target profile
-* allow `--drop <entry>` and drop-style presets for the planned PATH block
+* allow `--drop <entry>` and drop-style presets for the PATH block
 * report `create_profile`, `append_block`, or `replace_block`
 * reject non-file, unreadable, malformed-block, or duplicate-block profiles
+* create backups for existing profile writes unless `--no-backup` is passed
+* never rewrite PATH lines outside the patholog managed block
 
 Managed block markers:
 
@@ -648,21 +684,21 @@ Managed block markers:
 
 Exit code:
 
-* `0` on successful dry-run planning
+* `0` on successful dry-run planning or write
 * `1` on usage, target-profile, or managed-block error
 
 ---
 
 ## 5.9 `--drop` and `--preset`
 
-`--drop <entry>` is an exact opt-in cleanup rule for `doctor`, `clean`, and `apply --dry-run`.
+`--drop <entry>` is an exact opt-in cleanup rule for `doctor`, `clean`, and `apply`.
 
 Behaviour:
 
 * match after existing platform comparison-key normalisation
 * do not use glob, regex, `~`, or environment expansion
 * report `unwanted` diagnostics in `doctor`
-* remove matching entries before first-win deduplication in `clean` and `apply --dry-run`
+* remove matching entries before first-win deduplication in `clean` and `apply`
 
 `--preset homebrew|cargo|pyenv|fink` enables built-in policy. `homebrew`, `cargo`, and `pyenv` are diagnostic-only
 ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. Presets never reorder entries.
@@ -671,13 +707,13 @@ ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, an
 
 ## 6. v0.1 Safety Model
 
-### Read-only by default
+### Read-first by default
 
-All commands in v0.1 through v0.5.x must be read-only except for printing proposed cleaned output and repair plans.
+Commands inspect and explain before changing files. v0.6 mutation is limited to `apply --yes`.
 
-### No automatic mutation
+### No automatic broad mutation
 
-Do not modify:
+Do not modify these outside the explicit `apply --yes` managed-block path:
 
 * `~/.zshrc`
 * `~/.bashrc`
@@ -688,6 +724,7 @@ Do not modify:
 ### Rationale
 
 PATH mutation is risky and shell-specific. Inspection must come first.
+`apply --dry-run` shows the exact block before `apply --yes` writes it.
 
 ---
 
@@ -1032,12 +1069,11 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.5.x
+## 15. Explicit Non-Goals for v0.1 through v0.6
 
 Do not implement yet:
 
-* automatic shell profile editing
-* mutating `apply`
+* automatic shell profile editing outside the patholog managed block
 * PATH generation from declarative config
 * arbitrary path-like variables beyond `PATH` and `MANPATH`
 * automatic PATH reordering
@@ -1052,9 +1088,8 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.5.x features:
+Possible post-v0.6 features:
 
-* mutating `apply --shell zsh|bash|fish|pwsh`
 * `why-not <command>` with install hints
 * `watch` to detect PATH drift
 * machine-readable health score

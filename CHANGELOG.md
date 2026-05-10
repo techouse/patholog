@@ -2,6 +2,14 @@
 
 All notable changes to patholog are documented here.
 
+## 0.6.0 - 2026-05-09
+
+- Added gated mutating `apply --shell zsh|bash|fish|pwsh --yes` using the existing patholog-managed block.
+- Added default backups for existing profile edits plus `--no-backup` for explicit opt-out.
+- Added same-directory temporary writes for profile updates and parent directory creation for new profile targets.
+- Added human and JSON output for mutating apply results, including write and backup fields.
+- Kept `apply --dry-run` as the read-only planning mode.
+
 ## 0.5.2 - 2026-05-05
 
 - Added `--preset homebrew|cargo|pyenv|fink` to `doctor`, `clean`, and `apply --dry-run`.

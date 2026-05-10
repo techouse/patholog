@@ -169,6 +169,10 @@ pub(super) struct ApplyOptions {
     pub(super) common: CommonOptions,
     #[arg(long)]
     pub(super) dry_run: bool,
+    #[arg(long)]
+    pub(super) yes: bool,
+    #[arg(long)]
+    pub(super) no_backup: bool,
     #[arg(long, value_enum)]
     pub(super) shell: Option<ShellKind>,
     #[arg(long, value_name = "DIR")]

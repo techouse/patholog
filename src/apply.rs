@@ -1,8 +1,12 @@
-use std::fs;
+use std::ffi::OsString;
+use std::fs::{self, File, OpenOptions, Permissions};
+use std::io::Write;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::clean::{clean_with_policy, format_clean_export};
-use crate::model::{ApplyAction, ApplyPlan, PathVariable, PlatformMode, ShellKind};
+use crate::model::{ApplyAction, ApplyOutcome, ApplyPlan, PathVariable, PlatformMode, ShellKind};
 use crate::platform::resolve_platform_rules;
 use crate::policy::PathPolicy;
 
@@ -21,8 +25,20 @@ pub(crate) struct ApplyPlanOptions<'a> {
     pub(crate) policy: PathPolicy,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct PlannedApply {
+    pub(crate) plan: ApplyPlan,
+    profile_path: PathBuf,
+}
+
+#[cfg(test)]
 pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, String> {
+    plan_apply_operation(options).map(|planned| planned.plan)
+}
+
+pub(crate) fn plan_apply_operation(options: &ApplyPlanOptions<'_>) -> Result<PlannedApply, String> {
     let profile_path = target_profile(options)?;
+    reject_symlink_profile(&profile_path)?;
     let cleaned = clean_with_policy(
         options.path_value,
         options.platform_mode,
@@ -37,7 +53,7 @@ pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, St
         PathVariable::Path,
     ));
 
-    match fs::metadata(&profile_path) {
+    let plan = match fs::metadata(&profile_path) {
         Ok(metadata) if !metadata.is_file() => Err(format!(
             "apply target profile is not a file: {}",
             profile_path.display()
@@ -58,7 +74,46 @@ pub(crate) fn plan_apply(options: &ApplyPlanOptions<'_>) -> Result<ApplyPlan, St
             "apply target profile is not readable: {} ({error})",
             profile_path.display()
         )),
-    }
+    }?;
+
+    Ok(PlannedApply { plan, profile_path })
+}
+
+pub(crate) fn write_apply_plan(
+    planned: PlannedApply,
+    create_backup: bool,
+) -> Result<ApplyOutcome, String> {
+    let mut plan = planned.plan;
+    let profile_path = planned.profile_path;
+    reject_symlink_profile(&profile_path)?;
+    let existing_permissions = match plan.action {
+        ApplyAction::CreateProfile => None,
+        ApplyAction::AppendBlock | ApplyAction::ReplaceBlock => {
+            Some(profile_permissions(&profile_path)?)
+        }
+    };
+    let content = planned_profile_content(&profile_path, &plan)?;
+    let backup_path = match (create_backup, plan.action) {
+        (true, ApplyAction::AppendBlock | ApplyAction::ReplaceBlock) => {
+            Some(create_profile_backup(&profile_path)?)
+        }
+        _ => None,
+    };
+
+    let write_mode = match plan.action {
+        ApplyAction::CreateProfile => WriteMode::CreateNew,
+        ApplyAction::AppendBlock | ApplyAction::ReplaceBlock => WriteMode::ReplaceExisting,
+    };
+    write_profile_atomically(&profile_path, &content, existing_permissions, write_mode)?;
+    plan.would_write = true;
+
+    let backup_created = backup_path.is_some();
+    Ok(ApplyOutcome {
+        plan,
+        wrote: true,
+        backup_path: backup_path.map(|path| path.display().to_string()),
+        backup_created,
+    })
 }
 
 fn target_profile(options: &ApplyPlanOptions<'_>) -> Result<PathBuf, String> {
@@ -144,11 +199,15 @@ pub(crate) fn managed_block(snippet: &str) -> String {
 }
 
 pub(crate) fn existing_managed_block(content: &str) -> Result<Option<String>, String> {
+    existing_managed_block_span(content).map(|span| span.map(|span| content[span].to_owned()))
+}
+
+pub(crate) fn existing_managed_block_span(content: &str) -> Result<Option<Range<usize>>, String> {
     let starts = marker_offsets(content, START_MARKER);
     let ends = marker_offsets(content, END_MARKER);
     match (starts.as_slice(), ends.as_slice()) {
         ([], []) => Ok(None),
-        ([start], [end]) if start < end => Ok(Some(existing_block_content(content, *start, *end))),
+        ([start], [end]) if start < end => Ok(Some(existing_block_span(content, *start, *end))),
         ([start], [end]) if start >= end => {
             Err("apply target profile contains a malformed patholog managed block".to_owned())
         }
@@ -157,6 +216,71 @@ pub(crate) fn existing_managed_block(content: &str) -> Result<Option<String>, St
                 .to_owned(),
         ),
     }
+}
+
+pub(crate) fn appended_profile_content(existing: &str, planned_block: &str) -> String {
+    let line_ending = line_ending_for(existing);
+    let planned_block = planned_block_with_line_ending(planned_block, line_ending);
+    let mut content =
+        String::with_capacity(existing.len() + planned_block.len() + 2 * line_ending.len());
+    content.push_str(existing);
+    if !content.is_empty() {
+        if !content.ends_with(line_ending) {
+            content.push_str(line_ending);
+        }
+        content.push_str(line_ending);
+    }
+    content.push_str(&planned_block);
+    content.push_str(line_ending);
+    content
+}
+
+fn line_ending_for(content: &str) -> &'static str {
+    if content.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn planned_block_with_line_ending(block: &str, line_ending: &str) -> String {
+    if line_ending == "\n" {
+        return block.to_owned();
+    }
+    block.replace('\n', line_ending)
+}
+
+pub(crate) fn replaced_profile_content(
+    existing: &str,
+    planned_block: &str,
+) -> Result<String, String> {
+    let Some(span) = existing_managed_block_span(existing)? else {
+        return Err("apply target profile changed before write; rerun apply".to_owned());
+    };
+    let line_ending = line_ending_for(existing);
+    let planned_block = planned_block_with_line_ending(planned_block, line_ending);
+    let suffix = &existing[span.end..];
+    let mut content = String::with_capacity(existing.len() + planned_block.len());
+    content.push_str(&existing[..span.start]);
+    content.push_str(&planned_block);
+    if line_ending == "\r\n" && suffix.starts_with('\n') {
+        content.push('\r');
+    }
+    content.push_str(suffix);
+    Ok(content)
+}
+
+fn backup_path_candidate(profile_path: &Path, seconds: u64, suffix: usize) -> PathBuf {
+    let parent = profile_parent(profile_path);
+    let mut file_name = profile_path
+        .file_name()
+        .map(OsString::from)
+        .unwrap_or_else(|| OsString::from("profile"));
+    file_name.push(format!(".patholog-backup.{seconds}"));
+    if suffix != 0 {
+        file_name.push(format!(".{suffix}"));
+    }
+    parent.join(file_name)
 }
 
 fn marker_offsets(content: &str, marker: &str) -> Vec<usize> {
@@ -175,12 +299,190 @@ fn marker_offsets(content: &str, marker: &str) -> Vec<usize> {
     offsets
 }
 
-fn existing_block_content(content: &str, start: usize, end: usize) -> String {
+fn existing_block_span(content: &str, start: usize, end: usize) -> Range<usize> {
     let after_end_marker = end + END_MARKER.len();
     let block_end = content[after_end_marker..]
         .find('\n')
         .map_or(after_end_marker, |newline| after_end_marker + newline);
-    content[start..block_end].to_owned()
+    start..block_end
+}
+
+fn planned_profile_content(profile_path: &Path, plan: &ApplyPlan) -> Result<String, String> {
+    match plan.action {
+        ApplyAction::CreateProfile => {
+            if profile_path.exists() {
+                return Err("apply target profile changed before write; rerun apply".to_owned());
+            }
+            Ok(format!("{}\n", plan.planned_block))
+        }
+        ApplyAction::AppendBlock => {
+            let existing = read_profile_content(profile_path)?;
+            if existing_managed_block(&existing)?.is_some() {
+                return Err("apply target profile changed before write; rerun apply".to_owned());
+            }
+            Ok(appended_profile_content(&existing, &plan.planned_block))
+        }
+        ApplyAction::ReplaceBlock => {
+            let existing = read_profile_content(profile_path)?;
+            if existing_managed_block(&existing)? != plan.existing_block {
+                return Err("apply target profile changed before write; rerun apply".to_owned());
+            }
+            replaced_profile_content(&existing, &plan.planned_block)
+        }
+    }
+}
+
+fn read_profile_content(profile_path: &Path) -> Result<String, String> {
+    fs::read_to_string(profile_path).map_err(|error| {
+        format!(
+            "apply target profile is not readable: {} ({error})",
+            profile_path.display()
+        )
+    })
+}
+
+fn profile_permissions(profile_path: &Path) -> Result<Permissions, String> {
+    fs::metadata(profile_path)
+        .map(|metadata| metadata.permissions())
+        .map_err(|error| {
+            format!(
+                "apply target profile is not readable: {} ({error})",
+                profile_path.display()
+            )
+        })
+}
+
+fn create_profile_backup(profile_path: &Path) -> Result<PathBuf, String> {
+    create_profile_backup_for_seconds(profile_path, current_unix_seconds())
+}
+
+fn create_profile_backup_for_seconds(profile_path: &Path, seconds: u64) -> Result<PathBuf, String> {
+    let mut suffix = 0;
+    loop {
+        let backup_path = backup_path_candidate(profile_path, seconds, suffix);
+        match copy_profile_backup(profile_path, &backup_path) {
+            Ok(()) => return Ok(backup_path),
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                suffix += 1;
+            }
+            Err(error) => {
+                return Err(format!(
+                    "apply backup failed for {}: {} ({error})",
+                    profile_path.display(),
+                    backup_path.display()
+                ));
+            }
+        }
+    }
+}
+
+fn copy_profile_backup(profile_path: &Path, backup_path: &Path) -> std::io::Result<()> {
+    let mut source = File::open(profile_path)?;
+    let source_permissions = source.metadata()?.permissions();
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+
+        options.mode(source_permissions.mode());
+    }
+    let mut destination = options.open(backup_path)?;
+    #[cfg(unix)]
+    destination.set_permissions(source_permissions)?;
+    std::io::copy(&mut source, &mut destination)?;
+    destination.flush()?;
+    #[cfg(not(unix))]
+    destination.set_permissions(source_permissions)?;
+    Ok(())
+}
+
+fn write_profile_atomically(
+    profile_path: &Path,
+    content: &str,
+    permissions: Option<Permissions>,
+    mode: WriteMode,
+) -> Result<(), String> {
+    let parent = profile_parent(profile_path);
+    fs::create_dir_all(parent).map_err(|error| {
+        format!(
+            "apply could not create profile parent directory: {} ({error})",
+            parent.display()
+        )
+    })?;
+
+    let mut temp_file = tempfile::Builder::new()
+        .prefix(".patholog.")
+        .tempfile_in(parent)
+        .map_err(|error| {
+            format!(
+                "apply could not create temporary file in {} ({error})",
+                parent.display()
+            )
+        })?;
+    temp_file
+        .write_all(content.as_bytes())
+        .map_err(|error| format!("apply could not write temporary profile ({error})"))?;
+    temp_file
+        .flush()
+        .map_err(|error| format!("apply could not flush temporary profile ({error})"))?;
+    if let Some(permissions) = permissions {
+        temp_file
+            .as_file()
+            .set_permissions(permissions)
+            .map_err(|error| {
+                format!("apply could not set temporary profile permissions ({error})")
+            })?;
+    }
+    if mode == WriteMode::ReplaceExisting {
+        reject_symlink_profile(profile_path)?;
+    }
+    match mode {
+        WriteMode::CreateNew => temp_file.persist_noclobber(profile_path),
+        WriteMode::ReplaceExisting => temp_file.persist(profile_path),
+    }
+    .map_err(|error| {
+        format!(
+            "apply could not write profile: {} ({})",
+            profile_path.display(),
+            error.error
+        )
+    })?;
+    Ok(())
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum WriteMode {
+    CreateNew,
+    ReplaceExisting,
+}
+
+fn reject_symlink_profile(profile_path: &Path) -> Result<(), String> {
+    match fs::symlink_metadata(profile_path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => Err(format!(
+            "apply target profile is a symlink; use --profile with the resolved target path: {}",
+            profile_path.display()
+        )),
+        Ok(_metadata) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(format!(
+            "apply target profile is not readable: {} ({error})",
+            profile_path.display()
+        )),
+    }
+}
+
+fn current_unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs())
+}
+
+fn profile_parent(profile_path: &Path) -> &Path {
+    profile_path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."))
 }
 
 #[cfg(test)]

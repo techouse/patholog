@@ -2,17 +2,17 @@ use std::path::Path;
 
 use clap::CommandFactory;
 
-use crate::apply::{ApplyPlanOptions, plan_apply};
+use crate::apply::{ApplyPlanOptions, plan_apply_operation, write_apply_plan};
 use crate::clean::{clean_export_with_policy, clean_path_with_policy};
 use crate::doctor::{diagnose_command_path_with_policy, diagnose_path_with_policy};
 use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 use crate::output::human::{
-    format_apply_plan, format_conflicts, format_doctor, format_print, format_shell_profile_scan,
-    format_why,
+    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_print,
+    format_shell_profile_scan, format_why,
 };
 use crate::output::json::{
-    apply_plan_to_json, doctor_to_json, dumps_json, entries_to_json, resolution_to_json,
-    shell_profile_scan_to_json,
+    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, entries_to_json,
+    resolution_to_json, shell_profile_scan_to_json,
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
@@ -200,8 +200,14 @@ fn run_completions(options: CompletionOptions) -> CliResult {
 }
 
 fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
-    if !options.dry_run {
-        return CliResult::error("apply requires --dry-run in v0.5.x");
+    if options.dry_run && options.yes {
+        return CliResult::error("apply cannot use --dry-run with --yes");
+    }
+    if options.no_backup && !options.yes {
+        return CliResult::error("apply --no-backup requires --yes");
+    }
+    if !options.dry_run && !options.yes {
+        return CliResult::error("apply requires --dry-run or --yes");
     }
     let Some(shell) = options.shell else {
         return CliResult::error("apply requires --shell");
@@ -216,7 +222,7 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         .home
         .as_deref()
         .or_else(|| apply_user_profile_dir(options.common.platform, context));
-    let plan = match plan_apply(&ApplyPlanOptions {
+    let planned = match plan_apply_operation(&ApplyPlanOptions {
         path_value: &context.path_value,
         platform_mode: options.common.platform,
         pathext: context.pathext.as_deref(),
@@ -226,13 +232,26 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
         profile: options.profile.as_deref(),
         policy,
     }) {
-        Ok(plan) => plan,
+        Ok(planned) => planned,
         Err(message) => return CliResult::error(message),
     };
     if options.common.json {
-        return json_result(apply_plan_to_json(&plan));
+        if options.dry_run {
+            return json_result(apply_plan_to_json(&planned.plan));
+        }
+        let outcome = match write_apply_plan(planned, !options.no_backup) {
+            Ok(outcome) => outcome,
+            Err(message) => return CliResult::error(message),
+        };
+        return json_result(apply_outcome_to_json(&outcome));
     }
-    CliResult::success(format_apply_plan(&plan))
+    if options.dry_run {
+        return CliResult::success(format_apply_plan(&planned.plan));
+    }
+    match write_apply_plan(planned, !options.no_backup) {
+        Ok(outcome) => CliResult::success(format_apply_outcome(&outcome)),
+        Err(message) => CliResult::error(message),
+    }
 }
 
 fn variable_value(context: &CommandContext, variable: PathVariable) -> &str {
