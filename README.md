@@ -20,6 +20,7 @@ patholog clean --export --var manpath --shell zsh
 patholog clean --export --shell zsh
 patholog apply --dry-run --shell zsh
 patholog apply --shell zsh --yes
+patholog config check --config patholog.toml
 patholog completions zsh
 ```
 
@@ -40,14 +41,16 @@ The goal is to explain before changing anything.
 
 ```sh
 patholog print [--json] [--platform auto|posix|windows] [--var path|manpath]
-patholog doctor [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--fail-on=missing,duplicate,...] [--command <command>]
+patholog doctor [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--fail-on=missing,duplicate,...] [--command <command>] [--config <file|auto>]
 patholog why <command> [--json] [--platform auto|posix|windows]
 patholog conflicts <command> [--json] [--platform auto|posix|windows]
 patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
-patholog clean --stdout [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
-patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
-patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
-patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink]
+patholog clean --stdout [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home <dir>] [--profile <file>] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+patholog config check --config <file|auto>
+patholog config print --config <file|auto> [--json]
 patholog completions zsh|bash|fish|pwsh
 ```
 
@@ -105,6 +108,26 @@ patholog apply --shell zsh --yes --no-backup
 ```
 
 `--preset fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. `homebrew`, `cargo`, and `pyenv` presets enable ecosystem policy checks without automatically reordering entries.
+
+## Config Files
+
+`--config <file>` lets `doctor`, `clean`, and `apply` load declarative policy defaults. CLI flags append after config values:
+
+```toml
+version = 1
+
+[path]
+drop = ["/sw/bin"]
+preset = ["homebrew", "cargo"]
+fail_on = ["duplicate", "unwanted"]
+
+[manpath]
+drop = ["/sw/share/man"]
+preset = ["fink"]
+fail_on = ["duplicate"]
+```
+
+Use `patholog config check --config patholog.toml` to validate a file, or `patholog config print --config patholog.toml --json` to inspect normalized policy. `--config auto` searches only the current working directory for `patholog.toml`, then `.patholog.toml`.
 
 ## Exit Codes
 

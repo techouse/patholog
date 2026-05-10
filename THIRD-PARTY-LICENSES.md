@@ -38,13 +38,20 @@ Do not edit it by hand; run `make third-party-licenses`.
 | serde_core | 1.0.228 | `MIT OR Apache-2.0` | https://github.com/serde-rs/serde |
 | serde_derive | 1.0.228 | `MIT OR Apache-2.0` | https://github.com/serde-rs/serde |
 | serde_json | 1.0.149 | `MIT OR Apache-2.0` | https://github.com/serde-rs/json |
+| serde_spanned | 1.1.1 | `MIT OR Apache-2.0` | https://github.com/toml-rs/toml |
 | strsim | 0.11.1 | `MIT` | https://github.com/rapidfuzz/strsim-rs |
 | syn | 2.0.117 | `MIT OR Apache-2.0` | https://github.com/dtolnay/syn |
 | tempfile | 3.27.0 | `MIT OR Apache-2.0` | https://github.com/Stebalien/tempfile |
+| toml | 0.9.12+spec-1.1.0 | `MIT OR Apache-2.0` | https://github.com/toml-rs/toml |
+| toml_datetime | 0.7.5+spec-1.1.0 | `MIT OR Apache-2.0` | https://github.com/toml-rs/toml |
+| toml_parser | 1.1.2+spec-1.1.0 | `MIT OR Apache-2.0` | https://github.com/toml-rs/toml |
+| toml_writer | 1.1.1+spec-1.1.0 | `MIT OR Apache-2.0` | https://github.com/toml-rs/toml |
 | unicode-ident | 1.0.24 | `(MIT OR Apache-2.0) AND Unicode-3.0` | https://github.com/dtolnay/unicode-ident |
 | utf8parse | 0.2.2 | `Apache-2.0 OR MIT` | https://github.com/alacritty/vte |
 | windows-link | 0.2.1 | `MIT OR Apache-2.0` | https://github.com/microsoft/windows-rs |
 | windows-sys | 0.61.2 | `MIT OR Apache-2.0` | https://github.com/microsoft/windows-rs |
+| winnow | 0.7.15 | `MIT` | https://github.com/winnow-rs/winnow |
+| winnow | 1.0.2 | `MIT` | https://github.com/winnow-rs/winnow |
 | zmij | 1.0.21 | `MIT` | https://github.com/dtolnay/zmij |
 
 
@@ -282,6 +289,11 @@ Used by:
 - colorchoice 1.0.5 (https://github.com/rust-cli/anstyle.git)
 - is_terminal_polyfill 1.70.2 (https://github.com/polyfill-rs/is_terminal_polyfill)
 - once_cell_polyfill 1.70.2 (https://github.com/polyfill-rs/once_cell_polyfill)
+- serde_spanned 1.1.1 (https://github.com/toml-rs/toml)
+- toml 0.9.12+spec-1.1.0 (https://github.com/toml-rs/toml)
+- toml_datetime 0.7.5+spec-1.1.0 (https://github.com/toml-rs/toml)
+- toml_parser 1.1.2+spec-1.1.0 (https://github.com/toml-rs/toml)
+- toml_writer 1.1.1+spec-1.1.0 (https://github.com/toml-rs/toml)
 
 
 ```text
@@ -1051,6 +1063,37 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+
+
+### MIT License (`MIT`)
+
+Used by:
+
+- winnow 0.7.15 (https://github.com/winnow-rs/winnow)
+- winnow 1.0.2 (https://github.com/winnow-rs/winnow)
+
+
+```text
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 

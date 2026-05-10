@@ -1,5 +1,6 @@
 use serde_json::{Value, json};
 
+use crate::config::{ConfigPolicy, LoadedConfig};
 use crate::model::{
     ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation,
     ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport,
@@ -70,6 +71,31 @@ pub(crate) fn apply_outcome_to_json(outcome: &ApplyOutcome) -> Value {
         object.insert("backup_created".to_owned(), json!(outcome.backup_created));
     }
     value
+}
+
+pub(crate) fn config_to_json(config: &LoadedConfig) -> Value {
+    json!({
+        "config_path": config.path.display().to_string(),
+        "version": config.config.version,
+        "path": config_policy_to_json(&config.config.path),
+        "manpath": config_policy_to_json(&config.config.manpath),
+    })
+}
+
+fn config_policy_to_json(policy: &ConfigPolicy) -> Value {
+    json!({
+        "drop": policy.drop_entries,
+        "preset": policy
+            .presets
+            .iter()
+            .map(|preset| preset.as_str())
+            .collect::<Vec<_>>(),
+        "fail_on": policy
+            .fail_on
+            .iter()
+            .map(|kind| kind.as_str())
+            .collect::<Vec<_>>(),
+    })
 }
 
 fn entry_to_json(entry: &PathEntry) -> Value {

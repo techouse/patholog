@@ -163,6 +163,31 @@ v0.6 still defers:
 
 ---
 
+## 1.7 Declarative Policy Config Milestones (v0.7.x)
+
+v0.7.x adds explicit TOML config-file policy without expanding mutation scope. Config files provide defaults for
+existing `--drop`, `--preset`, and `doctor --fail-on` behavior.
+
+v0.7.x config commands and flags:
+
+```bash
+patholog doctor [--config <file|auto>]
+patholog clean --stdout|--export [--config <file|auto>]
+patholog apply --dry-run|--yes --shell zsh|bash|fish|pwsh [--config <file|auto>]
+patholog config check --config <file|auto>
+patholog config print --config <file|auto> [--json]
+```
+
+v0.7.x still defers:
+
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic reordering
+* arbitrary shell profile PATH-line rewriting
+* user-global config discovery
+* long-running `watch`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -339,6 +364,21 @@ patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platfo
 ```
 
 `apply --yes` writes only the patholog-managed PATH block. Existing profiles are backed up by default.
+
+---
+
+## 4.6 v0.7.x Config Additions
+
+```bash
+patholog doctor [--config <file|auto>]
+patholog clean --stdout|--export [--config <file|auto>]
+patholog apply --dry-run|--yes --shell zsh|bash|fish|pwsh [--config <file|auto>]
+patholog config check --config <file|auto>
+patholog config print --config <file|auto> [--json]
+```
+
+Config files are policy-only. They do not configure shell, profile path, backup behavior, output mode, platform, or
+mutation consent.
 
 ---
 
@@ -702,6 +742,42 @@ Behaviour:
 
 `--preset homebrew|cargo|pyenv|fink` enables built-in policy. `homebrew`, `cargo`, and `pyenv` are diagnostic-only
 ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, and `/sw/share/man` as unwanted for MANPATH. Presets never reorder entries.
+
+---
+
+## 5.10 Config Files
+
+```bash
+patholog config check --config patholog.toml
+patholog config print --config patholog.toml --json
+patholog doctor --config patholog.toml
+patholog clean --stdout --config auto
+```
+
+Supported TOML schema:
+
+```toml
+version = 1
+
+[path]
+drop = ["/sw/bin"]
+preset = ["homebrew", "cargo"]
+fail_on = ["duplicate", "unwanted"]
+
+[manpath]
+drop = ["/sw/share/man"]
+preset = ["fink"]
+fail_on = ["duplicate"]
+```
+
+Behaviour:
+
+* reject unsupported `version` values and unknown keys
+* apply `[path]` to PATH commands, `doctor --command`, and `apply`
+* apply `[manpath]` to `doctor --var manpath` and `clean --var manpath`
+* treat config values as defaults; repeated CLI flags append after config values
+* `--config auto` searches the current working directory for `patholog.toml`, then `.patholog.toml`
+* operational commands ignore missing `--config auto`; `config check` and `config print` fail when auto finds nothing
 
 ---
 
@@ -1069,15 +1145,15 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.6
+## 15. Explicit Non-Goals for v0.1 through v0.7.x
 
 Do not implement yet:
 
 * automatic shell profile editing outside the patholog managed block
-* PATH generation from declarative config
 * arbitrary path-like variables beyond `PATH` and `MANPATH`
 * automatic PATH reordering
 * daemon/background watcher
+* user-global config discovery
 * TUI
 * editor integration
 * shell plugin manager
@@ -1088,7 +1164,7 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.6 features:
+Possible post-v0.7 features:
 
 * `why-not <command>` with install hints
 * `watch` to detect PATH drift

@@ -4,15 +4,19 @@ use clap::CommandFactory;
 
 use crate::apply::{ApplyPlanOptions, plan_apply_operation, write_apply_plan};
 use crate::clean::{clean_export_with_policy, clean_path_with_policy};
+use crate::config::{
+    ConfigPolicy, LoadedConfig, load_optional_config, load_required_config, merge_drop_entries,
+    merge_fail_on, merge_presets,
+};
 use crate::doctor::{diagnose_command_path_with_policy, diagnose_path_with_policy};
 use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 use crate::output::human::{
-    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_print,
-    format_shell_profile_scan, format_why,
+    format_apply_outcome, format_apply_plan, format_config_check, format_config_print,
+    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
 };
 use crate::output::json::{
-    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, entries_to_json,
-    resolution_to_json, shell_profile_scan_to_json,
+    apply_outcome_to_json, apply_plan_to_json, config_to_json, doctor_to_json, dumps_json,
+    entries_to_json, resolution_to_json, shell_profile_scan_to_json,
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
@@ -23,7 +27,8 @@ use crate::resolve::resolve_command;
 use super::fail_on::parse_fail_on;
 use super::types::{
     ApplyOptions, CleanOptions, Cli, CliResult, Command, CommandContext, CompletionOptions,
-    DoctorOptions, PrintOptions, ResolutionOptions, ScanOptions,
+    ConfigCheckOptions, ConfigCommand, ConfigOptions, ConfigPrintOptions, DoctorOptions,
+    PrintOptions, ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
@@ -35,6 +40,7 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
         Command::Clean(options) => run_clean(options, context),
         Command::Apply(options) => run_apply(options, context),
         Command::Scan(options) => run_scan(options, context),
+        Command::Config(options) => run_config(options, context),
         Command::Completions(options) => run_completions(options),
     }
 }
@@ -55,7 +61,17 @@ fn run_doctor(options: DoctorOptions, context: &CommandContext) -> CliResult {
     if options.command.is_some() && options.variable != PathVariable::Path {
         return CliResult::error("doctor --command only supports --var path");
     }
-    let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
+    let config = match load_optional_config(options.config.as_deref(), &context.cwd) {
+        Ok(config) => config,
+        Err(message) => return CliResult::error(message),
+    };
+    let config_policy = config_policy(config.as_ref(), options.variable);
+    let policy = path_policy(
+        config_policy,
+        &options.drop_entries,
+        &options.presets,
+        options.variable,
+    );
     let report = if let Some(command) = options.command.as_deref() {
         diagnose_command_path_with_policy(
             &context.path_value,
@@ -74,10 +90,11 @@ fn run_doctor(options: DoctorOptions, context: &CommandContext) -> CliResult {
             &policy,
         )
     };
-    let selected_issue_kinds = match parse_fail_on(&options.fail_on) {
-        Ok(selected_issue_kinds) => selected_issue_kinds,
+    let cli_fail_on = match parse_fail_on(options.fail_on.as_deref().unwrap_or("")) {
+        Ok(cli_fail_on) => cli_fail_on,
         Err(message) => return CliResult::error(message),
     };
+    let selected_issue_kinds = merge_fail_on(config_policy, &cli_fail_on);
     let stdout = if options.common.json {
         match dumps_json(&doctor_to_json(&report)) {
             Ok(stdout) => stdout,
@@ -154,11 +171,21 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
     if !options.stdout && !options.export {
         return CliResult::error("clean requires --stdout or --export");
     }
+    let config = match load_optional_config(options.config.as_deref(), &context.cwd) {
+        Ok(config) => config,
+        Err(message) => return CliResult::error(message),
+    };
+    let config_policy = config_policy(config.as_ref(), options.variable);
     if options.export {
         let Some(shell) = options.shell else {
             return CliResult::error("clean --export requires --shell");
         };
-        let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
+        let policy = path_policy(
+            config_policy,
+            &options.drop_entries,
+            &options.presets,
+            options.variable,
+        );
         return CliResult::success(format!(
             "{}\n",
             clean_export_with_policy(
@@ -171,7 +198,12 @@ fn run_clean(options: CleanOptions, context: &CommandContext) -> CliResult {
             )
         ));
     }
-    let policy = path_policy(&options.drop_entries, &options.presets, options.variable);
+    let policy = path_policy(
+        config_policy,
+        &options.drop_entries,
+        &options.presets,
+        options.variable,
+    );
     CliResult::success(format!(
         "{}\n",
         clean_path_with_policy(
@@ -212,7 +244,17 @@ fn run_apply(options: ApplyOptions, context: &CommandContext) -> CliResult {
     let Some(shell) = options.shell else {
         return CliResult::error("apply requires --shell");
     };
-    let policy = path_policy(&options.drop_entries, &options.presets, PathVariable::Path);
+    let config = match load_optional_config(options.config.as_deref(), &context.cwd) {
+        Ok(config) => config,
+        Err(message) => return CliResult::error(message),
+    };
+    let config_policy = config_policy(config.as_ref(), PathVariable::Path);
+    let policy = path_policy(
+        config_policy,
+        &options.drop_entries,
+        &options.presets,
+        PathVariable::Path,
+    );
 
     let home_dir = options
         .home
@@ -262,11 +304,18 @@ fn variable_value(context: &CommandContext, variable: PathVariable) -> &str {
 }
 
 fn path_policy(
+    config_policy: Option<&ConfigPolicy>,
     drop_entries: &[String],
     presets: &[PresetKind],
     variable: PathVariable,
 ) -> PathPolicy {
-    PathPolicy::new(drop_entries, presets, variable)
+    let drop_entries = merge_drop_entries(config_policy, drop_entries);
+    let presets = merge_presets(config_policy, presets);
+    PathPolicy::new(&drop_entries, &presets, variable)
+}
+
+fn config_policy(config: Option<&LoadedConfig>, variable: PathVariable) -> Option<&ConfigPolicy> {
+    config.map(|config| config.policy_for(variable))
 }
 
 fn apply_home_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {
@@ -306,6 +355,31 @@ fn run_scan(options: ScanOptions, context: &CommandContext) -> CliResult {
         return json_result(shell_profile_scan_to_json(&report));
     }
     CliResult::success(format_shell_profile_scan(&report))
+}
+
+fn run_config(options: ConfigOptions, context: &CommandContext) -> CliResult {
+    match options.command {
+        ConfigCommand::Check(options) => run_config_check(options, context),
+        ConfigCommand::Print(options) => run_config_print(options, context),
+    }
+}
+
+fn run_config_check(options: ConfigCheckOptions, context: &CommandContext) -> CliResult {
+    match load_required_config(&options.config, &context.cwd) {
+        Ok(config) => CliResult::success(format_config_check(&config)),
+        Err(message) => CliResult::error(message),
+    }
+}
+
+fn run_config_print(options: ConfigPrintOptions, context: &CommandContext) -> CliResult {
+    let config = match load_required_config(&options.config, &context.cwd) {
+        Ok(config) => config,
+        Err(message) => return CliResult::error(message),
+    };
+    if options.json {
+        return json_result(config_to_json(&config));
+    }
+    CliResult::success(format_config_print(&config))
 }
 
 fn scan_home_dir(platform_mode: PlatformMode, context: &CommandContext) -> Option<&Path> {
