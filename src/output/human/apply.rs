@@ -45,10 +45,11 @@ pub(crate) fn format_apply_outcome(outcome: &ApplyOutcome) -> String {
 }
 
 fn backup_line(outcome: &ApplyOutcome) -> String {
-    match (&outcome.backup_path, outcome.backup_created) {
-        (Some(path), true) => format!("  {path}"),
-        (None, false) if outcome.plan.action == ApplyAction::CreateProfile => "  none".to_owned(),
-        (None, false) => "  disabled".to_owned(),
-        _ => "  disabled".to_owned(),
+    if let Some(path) = outcome.backup_path.as_deref() {
+        return format!("  {path}");
+    }
+    match outcome.plan.action {
+        ApplyAction::CreateProfile => "  none".to_owned(),
+        ApplyAction::AppendBlock | ApplyAction::ReplaceBlock => "  disabled".to_owned(),
     }
 }
