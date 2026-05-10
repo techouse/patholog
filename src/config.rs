@@ -6,8 +6,6 @@ use serde::Deserialize;
 
 use crate::model::{IssueKind, PathVariable, PresetKind};
 
-const SUPPORTED_PRESET_VALUES: &str = "homebrew, cargo, pyenv, fink";
-const SUPPORTED_ISSUE_KIND_VALUES: &str = "duplicate, empty, missing, not_directory, unreadable, suspicious_order, shadowed_command, unwanted";
 const CONFIG_VERSION: u64 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -186,21 +184,17 @@ impl TryFrom<RawPolicy> for ConfigPolicy {
 
         let mut presets = Vec::new();
         for preset in raw.presets {
-            let Some(kind) = preset_by_value(&preset) else {
-                return Err(format!(
-                    "unsupported preset {preset:?}; expected one of: {SUPPORTED_PRESET_VALUES}"
-                ));
-            };
+            let kind = preset
+                .parse::<PresetKind>()
+                .map_err(|error| format!("unsupported preset {preset:?}; {error}"))?;
             push_unique(&mut presets, kind);
         }
 
         let mut fail_on = Vec::new();
         for issue_kind in raw.fail_on {
-            let Some(kind) = issue_kind_by_value(&issue_kind) else {
-                return Err(format!(
-                    "unsupported issue kind {issue_kind:?}; expected one of: {SUPPORTED_ISSUE_KIND_VALUES}"
-                ));
-            };
+            let kind = issue_kind
+                .parse::<IssueKind>()
+                .map_err(|error| format!("unsupported issue kind {issue_kind:?}; {error}"))?;
             push_unique(&mut fail_on, kind);
         }
 
@@ -209,30 +203,6 @@ impl TryFrom<RawPolicy> for ConfigPolicy {
             presets,
             fail_on,
         })
-    }
-}
-
-fn preset_by_value(value: &str) -> Option<PresetKind> {
-    match value {
-        "homebrew" => Some(PresetKind::Homebrew),
-        "cargo" => Some(PresetKind::Cargo),
-        "pyenv" => Some(PresetKind::Pyenv),
-        "fink" => Some(PresetKind::Fink),
-        _ => None,
-    }
-}
-
-fn issue_kind_by_value(value: &str) -> Option<IssueKind> {
-    match value {
-        "duplicate" => Some(IssueKind::Duplicate),
-        "empty" => Some(IssueKind::Empty),
-        "missing" => Some(IssueKind::Missing),
-        "not_directory" => Some(IssueKind::NotDirectory),
-        "unreadable" => Some(IssueKind::Unreadable),
-        "suspicious_order" => Some(IssueKind::SuspiciousOrder),
-        "shadowed_command" => Some(IssueKind::ShadowedCommand),
-        "unwanted" => Some(IssueKind::Unwanted),
-        _ => None,
     }
 }
 
