@@ -406,7 +406,7 @@ fn write_profile_atomically(
     let parent = profile_parent(profile_path);
     fs::create_dir_all(parent).map_err(|error| {
         format!(
-            "apply target profile parent is not writable: {} ({error})",
+            "apply could not create profile parent directory: {} ({error})",
             parent.display()
         )
     })?;

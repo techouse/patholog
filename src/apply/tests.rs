@@ -4,9 +4,10 @@ use crate::model::{ApplyAction, PlatformMode, ShellKind};
 use crate::policy::PathPolicy;
 
 use super::{
-    ApplyPlanOptions, END_MARKER, START_MARKER, appended_profile_content, backup_path_candidate,
-    create_profile_backup_for_seconds, existing_managed_block, existing_managed_block_span,
-    managed_block, plan_apply, plan_apply_operation, replaced_profile_content, write_apply_plan,
+    ApplyPlanOptions, END_MARKER, START_MARKER, WriteMode, appended_profile_content,
+    backup_path_candidate, create_profile_backup_for_seconds, existing_managed_block,
+    existing_managed_block_span, managed_block, plan_apply, plan_apply_operation,
+    replaced_profile_content, write_apply_plan, write_profile_atomically,
 };
 
 #[test]
@@ -413,6 +414,20 @@ fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning()
         std::fs::read_to_string(&profile).expect("read profile"),
         "user-created\n"
     );
+}
+
+#[test]
+fn write_apply_plan_reports_parent_directory_creation_failures_generically() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let parent_file = directory.path().join("profile-parent");
+    std::fs::write(&parent_file, "not a directory\n").expect("write parent file");
+    let profile = parent_file.join("child/.zshrc");
+
+    let error = write_profile_atomically(&profile, "content\n", None, WriteMode::CreateNew)
+        .expect_err("write should fail");
+
+    assert!(error.contains("could not create profile parent directory"));
+    assert!(!error.contains("not writable"));
 }
 
 #[cfg(target_os = "linux")]
