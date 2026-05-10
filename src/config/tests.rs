@@ -178,6 +178,30 @@ fn load_required_config_auto_discovers_patholog_toml() {
 }
 
 #[test]
+fn load_required_config_auto_skips_directory_candidate() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    std::fs::create_dir(directory.path().join("patholog.toml")).expect("create config dir");
+    let dot_config_path = directory.path().join(".patholog.toml");
+    std::fs::write(&dot_config_path, "version = 1\n").expect("write dot config");
+
+    let config = load_required_config(Path::new("auto"), directory.path()).expect("load config");
+
+    assert_eq!(config.path, dot_config_path);
+}
+
+#[test]
+fn load_optional_config_auto_ignores_directory_candidates() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    std::fs::create_dir(directory.path().join("patholog.toml")).expect("create config dir");
+    std::fs::create_dir(directory.path().join(".patholog.toml")).expect("create dot config dir");
+
+    let config = load_optional_config(Some(Path::new("auto")), directory.path())
+        .expect("load optional config");
+
+    assert!(config.is_none());
+}
+
+#[test]
 fn load_required_config_auto_errors_when_not_found() {
     let directory = tempfile::tempdir().expect("create tempdir");
 

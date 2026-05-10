@@ -123,7 +123,7 @@ fn load_config_file(path: &Path) -> Result<LoadedConfig, String> {
 fn discover_config(cwd: &Path) -> Option<PathBuf> {
     for name in ["patholog.toml", ".patholog.toml"] {
         let path = cwd.join(name);
-        if path.exists() {
+        if path.is_file() {
             return Some(path);
         }
     }
