@@ -1,3 +1,4 @@
+use std::ffi::OsString;
 use std::fs::{self, File, OpenOptions, Permissions};
 use std::io::Write;
 use std::ops::Range;
@@ -271,16 +272,15 @@ pub(crate) fn replaced_profile_content(
 
 fn backup_path_candidate(profile_path: &Path, seconds: u64, suffix: usize) -> PathBuf {
     let parent = profile_parent(profile_path);
-    let file_name = profile_path
+    let mut file_name = profile_path
         .file_name()
-        .map(|name| name.to_string_lossy())
-        .unwrap_or_else(|| "profile".into());
-    let base_name = format!("{file_name}.patholog-backup.{seconds}");
-    if suffix == 0 {
-        parent.join(base_name)
-    } else {
-        parent.join(format!("{base_name}.{suffix}"))
+        .map(OsString::from)
+        .unwrap_or_else(|| OsString::from("profile"));
+    file_name.push(format!(".patholog-backup.{seconds}"));
+    if suffix != 0 {
+        file_name.push(format!(".{suffix}"));
     }
+    parent.join(file_name)
 }
 
 fn marker_offsets(content: &str, marker: &str) -> Vec<usize> {

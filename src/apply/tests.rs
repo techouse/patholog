@@ -338,6 +338,30 @@ fn create_profile_backup_uses_create_new_suffix_without_overwriting() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn create_profile_backup_preserves_non_utf8_base_name() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::{OsStrExt, OsStringExt};
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory
+        .path()
+        .join(OsString::from_vec(b"profile-\xff".to_vec()));
+    std::fs::write(&profile, "before\n").expect("write profile");
+
+    let backup = create_profile_backup_for_seconds(&profile, 123).expect("create backup");
+
+    assert_eq!(
+        backup.file_name().expect("backup has file name").as_bytes(),
+        b"profile-\xff.patholog-backup.123"
+    );
+    assert_eq!(
+        std::fs::read_to_string(&backup).expect("read backup"),
+        "before\n"
+    );
+}
+
 #[cfg(unix)]
 #[test]
 fn create_profile_backup_preserves_source_permissions() {
