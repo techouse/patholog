@@ -86,6 +86,32 @@ fn clean_stdout_combines_drop_and_preset_policy() {
 }
 
 #[test]
+fn clean_stdout_applies_config_policy_before_cli_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"config-drop\"]\n",
+    );
+
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+            "--drop",
+            "cli-drop",
+        ],
+        context("config-drop:cli-drop:keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "keep\n");
+}
+
+#[test]
 fn clean_export_outputs_shell_snippets() {
     for (shell, expected_stdout) in [
         ("bash", "export PATH='first:second'\n"),
@@ -177,6 +203,34 @@ fn clean_export_requires_shell() {
 }
 
 #[test]
+fn clean_export_manpath_applies_config_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[manpath]\ndrop = [\"/drop/man\"]\n",
+    );
+
+    let result = run(
+        [
+            "clean",
+            "--export",
+            "--var",
+            "manpath",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context_with_manpath("", "/drop/man:/keep/man", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "export MANPATH='/keep/man'\n");
+}
+
+#[test]
 fn clean_shell_requires_export() {
     let result = run(["clean", "--shell", "bash"], context("", None));
 
@@ -205,6 +259,7 @@ fn completions_outputs_scripts_for_supported_shells() {
 
         assert_eq!(result.exit_code, ExitCode::Success);
         assert!(result.stdout.contains("clean"));
+        assert!(result.stdout.contains("config"));
         assert!(result.stdout.contains("completions"));
         assert!(result.stdout.contains("yes"));
         assert!(result.stdout.contains("no-backup"));
@@ -478,6 +533,36 @@ fn apply_dry_run_uses_fink_preset_drop_policy() {
 }
 
 #[test]
+fn apply_dry_run_uses_config_path_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join("missing.profile");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\"]\n[manpath]\ndrop = [\"/keep\"]\n",
+    );
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("/drop:/keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Cleaned PATH:\n  /keep"));
+    assert!(result.stdout.contains("export PATH='/keep'"));
+}
+
+#[test]
 fn apply_dry_run_json_includes_plan_fields() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let result = run(
@@ -530,6 +615,38 @@ fn apply_yes_creates_profile_without_backup() {
         "# >>> patholog PATH >>>\nexport PATH='/a:/b'\n# <<< patholog PATH <<<\n"
     );
     assert!(backup_paths_for(&profile).is_empty());
+}
+
+#[test]
+fn apply_yes_uses_config_path_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".zshrc");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\"]\n",
+    );
+
+    let result = run(
+        [
+            "apply",
+            "--yes",
+            "--shell",
+            "zsh",
+            "--platform",
+            "posix",
+            "--profile",
+            profile.to_str().expect("utf-8 profile"),
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("/drop:/keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(
+        std::fs::read_to_string(&profile).expect("read profile"),
+        "# >>> patholog PATH >>>\nexport PATH='/keep'\n# <<< patholog PATH <<<\n"
+    );
 }
 
 #[test]
@@ -846,6 +963,111 @@ fn doctor_reports_unwanted_entries_and_fail_on() {
 }
 
 #[test]
+fn doctor_config_reports_unwanted_entries_and_fail_on() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"drop\"]\nfail_on = [\"unwanted\"]\n",
+    );
+
+    let result = run(
+        [
+            "doctor",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("drop:keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::DiagnosticsFound);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains("drop"));
+}
+
+#[test]
+fn doctor_config_fail_on_combines_with_cli_fail_on() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let missing = directory.path().join("missing");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\nfail_on = [\"unwanted\"]\n",
+    );
+
+    let result = run(
+        [
+            "doctor",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+            "--fail-on=missing",
+        ],
+        context(&missing.display().to_string(), None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::DiagnosticsFound);
+    assert!(result.stdout.contains("Missing directories:"));
+}
+
+#[test]
+fn doctor_config_var_manpath_uses_manpath_section() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"path-drop\"]\n[manpath]\ndrop = [\"man-drop\"]\n",
+    );
+
+    let result = run(
+        [
+            "doctor",
+            "--var",
+            "manpath",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context_with_manpath("path-drop", "man-drop:keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains("man-drop"));
+    assert!(!result.stdout.contains("path-drop"));
+}
+
+#[test]
+fn doctor_config_command_uses_path_section() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let bin = directory.path().join("bin");
+    std::fs::create_dir(&bin).expect("create bin");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"drop\"]\n[manpath]\ndrop = [\"man-drop\"]\n",
+    );
+
+    let result = run(
+        [
+            "doctor",
+            "--command",
+            "tool",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context(&format!("drop:{}", bin.display()), None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Unwanted entries:"));
+    assert!(result.stdout.contains("drop"));
+    assert!(!result.stdout.contains("man-drop"));
+}
+
+#[test]
 fn doctor_var_manpath_reports_manpath_entries() {
     let result = run(
         ["doctor", "--var", "manpath", "--platform", "posix"],
@@ -1039,7 +1261,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.6.0\n");
+    assert_eq!(result.stdout, "patholog 0.7.2\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -1070,6 +1292,175 @@ fn invalid_fail_on_returns_runtime_error() {
     assert!(result.stderr.contains("unsupported issue kind \"bogus\""));
     assert!(result.stderr.contains("unreadable"));
     assert!(result.stderr.contains("shadowed_command"));
+}
+
+#[test]
+fn missing_config_returns_runtime_error() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = directory.path().join("missing.toml");
+
+    let result = run(
+        ["doctor", "--config", config.to_str().expect("utf-8 config")],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config file is not readable"));
+}
+
+#[test]
+fn malformed_config_returns_runtime_error() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(directory.path(), "version = ");
+
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config file is invalid"));
+}
+
+#[test]
+fn unknown_config_key_returns_runtime_error() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(directory.path(), "version = 1\nunknown = true\n");
+
+    let result = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config file is invalid"));
+    assert!(result.stderr.contains("unknown"));
+}
+
+#[test]
+fn config_check_validates_config_file() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\"]\n",
+    );
+
+    let result = run(
+        [
+            "config",
+            "check",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Config OK:"));
+}
+
+#[test]
+fn config_print_outputs_normalized_json() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\", \"/drop\"]\npreset = [\"cargo\"]\nfail_on = [\"duplicate\"]\n",
+    );
+
+    let result = run(
+        [
+            "config",
+            "print",
+            "--json",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("\"version\": 1"));
+    assert!(
+        result
+            .stdout
+            .contains("\"drop\": [\n      \"/drop\"\n    ]")
+    );
+    assert!(
+        result
+            .stdout
+            .contains("\"preset\": [\n      \"cargo\"\n    ]")
+    );
+    assert!(
+        result
+            .stdout
+            .contains("\"fail_on\": [\n      \"duplicate\"\n    ]")
+    );
+}
+
+#[test]
+fn config_auto_discovers_local_patholog_toml_for_operations() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    write_config(directory.path(), "version = 1\n[path]\ndrop = [\"drop\"]\n");
+
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--config",
+            "auto",
+        ],
+        context_with_cwd("drop:keep", None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "keep\n");
+}
+
+#[test]
+fn config_auto_not_found_is_ignored_for_operations() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+
+    let result = run(
+        [
+            "clean",
+            "--stdout",
+            "--platform",
+            "posix",
+            "--config",
+            "auto",
+        ],
+        context_with_cwd("drop:keep", None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_eq!(result.stdout, "drop:keep\n");
+}
+
+#[test]
+fn config_auto_not_found_fails_for_config_commands() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+
+    let result = run(
+        ["config", "check", "--config", "auto"],
+        context_with_cwd("", None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config auto did not find"));
 }
 
 #[test]
@@ -1175,6 +1566,12 @@ fn backup_paths_for(profile: &Path) -> Vec<std::path::PathBuf> {
         .collect::<Vec<_>>();
     paths.sort();
     paths
+}
+
+fn write_config(directory: &Path, content: &str) -> std::path::PathBuf {
+    let config_path = directory.join("patholog.toml");
+    std::fs::write(&config_path, content).expect("write config");
+    config_path
 }
 
 fn make_executable(path: &Path) {

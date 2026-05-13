@@ -2,6 +2,22 @@
 
 All notable changes to patholog are documented here.
 
+## 0.7.2 - 2026-05-10
+
+- Added `--config auto` discovery for `patholog.toml` and `.patholog.toml` in the current working directory.
+- Added missing-auto errors for `config check` and `config print` while keeping operational commands unchanged when auto finds no config.
+
+## 0.7.1 - 2026-05-10
+
+- Added `patholog config check --config <file>` and `patholog config print --config <file> [--json]`.
+- Added normalized human and JSON config inspection output.
+
+## 0.7.0 - 2026-05-10
+
+- Added explicit TOML config policy via `--config <file>` for `doctor`, `clean`, and `apply`.
+- Added config support for existing `drop`, `preset`, and `fail_on` policy.
+- Kept config files policy-only with no extra mutation scope.
+
 ## 0.6.0 - 2026-05-09
 
 - Added gated mutating `apply --shell zsh|bash|fish|pwsh --yes` using the existing patholog-managed block.

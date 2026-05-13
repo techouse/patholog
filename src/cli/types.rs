@@ -95,6 +95,7 @@ pub(super) enum Command {
     Clean(CleanOptions),
     Apply(ApplyOptions),
     Scan(ScanOptions),
+    Config(ConfigOptions),
     Completions(CompletionOptions),
 }
 
@@ -120,14 +121,16 @@ pub(super) struct DoctorOptions {
     pub(super) common: CommonOptions,
     #[arg(long = "var", value_enum, default_value_t = PathVariable::Path)]
     pub(super) variable: PathVariable,
-    #[arg(long, default_value = "", value_name = "KINDS")]
-    pub(super) fail_on: String,
+    #[arg(long, value_name = "KINDS")]
+    pub(super) fail_on: Option<String>,
     #[arg(long, value_name = "COMMAND")]
     pub(super) command: Option<String>,
     #[arg(long = "drop", value_name = "ENTRY")]
     pub(super) drop_entries: Vec<String>,
     #[arg(long = "preset", value_enum)]
     pub(super) presets: Vec<PresetKind>,
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -153,6 +156,8 @@ pub(super) struct CleanOptions {
     pub(super) drop_entries: Vec<String>,
     #[arg(long = "preset", value_enum)]
     pub(super) presets: Vec<PresetKind>,
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -183,6 +188,34 @@ pub(super) struct ApplyOptions {
     pub(super) drop_entries: Vec<String>,
     #[arg(long = "preset", value_enum)]
     pub(super) presets: Vec<PresetKind>,
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub(super) struct ConfigOptions {
+    #[command(subcommand)]
+    pub(super) command: ConfigCommand,
+}
+
+#[derive(Subcommand)]
+pub(super) enum ConfigCommand {
+    Check(ConfigCheckOptions),
+    Print(ConfigPrintOptions),
+}
+
+#[derive(Args)]
+pub(super) struct ConfigCheckOptions {
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: PathBuf,
+}
+
+#[derive(Args)]
+pub(super) struct ConfigPrintOptions {
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: PathBuf,
+    #[arg(long)]
+    pub(super) json: bool,
 }
 
 #[derive(Args)]
