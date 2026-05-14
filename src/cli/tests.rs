@@ -269,8 +269,8 @@ fn completions_outputs_scripts_for_supported_shells() {
 
 #[test]
 fn why_not_found_command_reports_available() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     make_executable(&bin.join("tool"));
 
     let result = run(
@@ -289,8 +289,8 @@ fn why_not_found_command_reports_available() {
 
 #[test]
 fn why_not_missing_command_reports_searched_directories_and_related_hints() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     make_executable(&bin.join("python3"));
 
     let result = run(
@@ -312,9 +312,9 @@ fn why_not_missing_command_reports_searched_directories_and_related_hints() {
 
 #[test]
 fn why_not_missing_command_reports_path_diagnostics() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let missing = directory.path().join("missing");
-    let file = directory.path().join("not-dir");
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+    let file = root.join("not-dir");
     std::fs::write(&file, "not a directory").expect("write file");
 
     let result = run(
@@ -335,8 +335,8 @@ fn why_not_missing_command_reports_path_diagnostics() {
 
 #[test]
 fn why_not_json_includes_stable_fields() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let missing = directory.path().join("missing");
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
 
     let result = run(
         ["why-not", "tool", "--platform", "posix", "--json"],
@@ -1681,3 +1681,16 @@ fn make_permissions_executable(path: &Path) {
 
 #[cfg(not(unix))]
 fn make_permissions_executable(_path: &Path) {}
+
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
+}

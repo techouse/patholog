@@ -6,8 +6,8 @@ use super::{WhyNotOptions, analyze_why_not};
 
 #[test]
 fn analyze_why_not_preserves_found_candidate_and_winner() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let bin = directory.path().join("bin");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
     make_executable(&bin.join("tool"));
 
     let report = analyze_why_not(&WhyNotOptions {
@@ -34,9 +34,9 @@ fn analyze_why_not_preserves_found_candidate_and_winner() {
 
 #[test]
 fn analyze_why_not_reports_missing_command_context() {
-    let directory = tempfile::tempdir().expect("create tempdir");
-    let bin = directory.path().join("bin");
-    let missing = directory.path().join("missing");
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    let missing = root.join("missing");
     std::fs::create_dir(&bin).expect("create bin");
     make_executable(&bin.join("python3"));
 
@@ -85,3 +85,16 @@ fn make_permissions_executable(path: &Path) {
 
 #[cfg(not(unix))]
 fn make_permissions_executable(_path: &Path) {}
+
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
+}
