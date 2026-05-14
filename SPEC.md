@@ -188,6 +188,28 @@ v0.7.x still defers:
 
 ---
 
+## 1.8 Missing Command Analysis Milestone (v0.8)
+
+v0.8 adds read-only missing-command analysis. It explains why an exact command is not available by combining command
+resolution, related executable hints, PATH health diagnostics, and safe advisory next checks.
+
+v0.8 command:
+
+```bash
+patholog why-not <command> [--json] [--platform auto|posix|windows]
+```
+
+v0.8 still defers:
+
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic reordering
+* arbitrary shell profile PATH-line rewriting
+* user-global config discovery
+* package manager integration
+* long-running `watch`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -244,7 +266,24 @@ Should explain:
 
 ---
 
-### 3.3 Show all candidates for a command
+### 3.3 Explain why a command is not available
+
+```bash
+patholog why-not poetry
+patholog why-not python
+```
+
+Should explain:
+
+* whether the exact command is already available
+* which PATH directories were searched
+* related executable names that are present
+* PATH health issues relevant to lookup
+* safe next checks without invoking package managers or editing files
+
+---
+
+### 3.4 Show all candidates for a command
 
 ```bash
 patholog conflicts python
@@ -255,7 +294,7 @@ Should list all matching executables found in PATH order.
 
 ---
 
-### 3.4 Produce a cleaned PATH
+### 3.5 Produce a cleaned PATH
 
 ```bash
 patholog clean --stdout
@@ -265,7 +304,7 @@ Should emit a deduplicated, sanitised PATH string without mutating user files.
 
 ---
 
-### 3.5 Diagnose command-specific shadowing
+### 3.6 Diagnose command-specific shadowing
 
 ```bash
 patholog doctor --command python
@@ -275,7 +314,7 @@ Should report command candidates that exist but lose to earlier PATH entries.
 
 ---
 
-### 3.6 Scan shell startup files read-only
+### 3.7 Scan shell startup files read-only
 
 ```bash
 patholog scan
@@ -538,7 +577,59 @@ Exit code:
 
 ---
 
-## 5.4 `conflicts <command>`
+## 5.4 `why-not <command>`
+
+```bash
+patholog why-not poetry
+```
+
+Explains missing-command cases without mutating files, reordering PATH, or invoking package managers.
+
+### Output must include
+
+* whether an exact executable candidate was found
+* the winning exact candidate, if found
+* searched directories when not found
+* related executable hints, if any
+* PATH health diagnostics relevant to lookup, such as empty, missing, non-directory, or unreadable entries
+* ordered advisory next checks
+
+### Example
+
+```text
+Command: poetry
+
+Not found in PATH.
+
+Searched directories:
+  1  /opt/homebrew/bin
+  2  /usr/local/bin
+  3  /usr/bin
+
+Advice:
+  Check that the command is installed and that its executable directory is present in PATH.
+```
+
+JSON output must expose stable top-level fields:
+
+* `command`
+* `found`
+* `winner`
+* `candidates`
+* `searched_directories`
+* `related_hints`
+* `path_diagnostics`
+* `advice`
+
+Exit code:
+
+* `0` if an exact command candidate is found
+* `3` if not found
+* `1` on runtime error
+
+---
+
+## 5.5 `conflicts <command>`
 
 ```bash
 patholog conflicts python
@@ -1059,12 +1150,16 @@ For human output:
 * `print`
 * `doctor`
 * `why`
+* `why-not`
 * `conflicts`
 
 Store expected output snapshots.
 
 For JSON output, compare exact output for `print`, `doctor`, `why`, `conflicts`, and the related-hint `why` not-found
 case against `/Users/klemen/Work/patholog.py/tests/fixtures/golden`.
+
+For Rust-only output, include `why-not` human and JSON tests with exact lookup, related hints, PATH diagnostics, and
+advice fields.
 
 ## 12.4 Integration tests
 
@@ -1120,6 +1215,7 @@ README must include:
 ```bash
 patholog doctor
 patholog why python
+patholog why-not poetry
 patholog conflicts cargo
 patholog clean --stdout
 ```
@@ -1145,7 +1241,7 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.7.x
+## 15. Explicit Non-Goals for v0.1 through v0.8
 
 Do not implement yet:
 
@@ -1164,9 +1260,8 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.7 features:
+Possible post-v0.8 features:
 
-* `why-not <command>` with install hints
 * `watch` to detect PATH drift
 * machine-readable health score
 

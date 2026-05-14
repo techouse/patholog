@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.8.0 - 2026-05-13
+
+- Added `patholog why-not <command>` for read-only missing-command analysis.
+- Added human and JSON output combining exact lookup, related executable hints, PATH health diagnostics, and safe advisory next checks.
+- Kept `why-not` PATH-only with no config policy, package-manager integration, reordering, or mutation.
+
 ## 0.7.2 - 2026-05-10
 
 - Added `--config auto` discovery for `patholog.toml` and `.patholog.toml` in the current working directory.

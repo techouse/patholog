@@ -1,16 +1,16 @@
 use crate::model::{
     ApplyAction, ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry,
     PathMutation, PathVariable, RelatedExecutableHint, ResolutionCandidate, ResolutionReport,
-    ShellKind, ShellProfile, ShellProfileScanReport,
+    ShellKind, ShellProfile, ShellProfileScanReport, WhyNotReport,
 };
 
 use super::human::{
     format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_print,
-    format_shell_profile_scan, format_why,
+    format_shell_profile_scan, format_why, format_why_not,
 };
 use super::json::{
     apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, resolution_to_json,
-    shell_profile_scan_to_json,
+    shell_profile_scan_to_json, why_not_to_json,
 };
 
 #[test]
@@ -167,6 +167,52 @@ fn format_conflicts_reports_no_matches() {
 }
 
 #[test]
+fn format_why_not_renders_found_command() {
+    let report = WhyNotReport {
+        command: "tool".to_owned(),
+        candidates: vec![candidate(1, "/bin", "/bin/tool", true)],
+        searched_directories: vec!["/bin".to_owned()],
+        related_hints: Vec::new(),
+        path_diagnostics: Vec::new(),
+        advice: vec!["The exact command is already available from PATH.".to_owned()],
+    };
+
+    assert_eq!(
+        format_why_not(&report),
+        "Command: tool\n\nAvailable in PATH:\n  /bin/tool\n\nStatus:\n  The exact command is already available.\n"
+    );
+}
+
+#[test]
+fn format_why_not_renders_missing_context() {
+    let report = WhyNotReport {
+        command: "python".to_owned(),
+        candidates: Vec::new(),
+        searched_directories: vec!["/missing".to_owned(), "/bin".to_owned()],
+        related_hints: vec![RelatedExecutableHint {
+            command: "python3".to_owned(),
+            paths: vec!["/bin/python3".to_owned()],
+        }],
+        path_diagnostics: vec![Diagnostic {
+            kind: IssueKind::Missing,
+            message: "/missing does not exist".to_owned(),
+            entry_index: Some(1),
+            entry_value: Some("/missing".to_owned()),
+            related_indexes: Vec::new(),
+        }],
+        advice: vec![
+            "Check that the command is installed and that its executable directory is present in PATH."
+                .to_owned(),
+        ],
+    };
+
+    assert_eq!(
+        format_why_not(&report),
+        "Command: python\n\nNot found in PATH.\n\nSearched directories:\n  1  /missing\n  2  /bin\n\nPATH diagnostics:\n  missing  1  /missing\n\nRelated executables, not PATH matches:\n  python3\n    /bin/python3\n\nAdvice:\n  Check that the command is installed and that its executable directory is present in PATH.\n"
+    );
+}
+
+#[test]
 fn dumps_json_uses_sorted_keys_pretty_indentation_and_trailing_newline() {
     let report = DoctorReport {
         variable: PathVariable::Path,
@@ -206,6 +252,36 @@ fn json_output_classifies_entry_kinds_and_missing_winner() {
     assert!(doctor.contains("\"kind\": \"missing\""));
     assert!(doctor.contains("\"kind\": \"not_directory\""));
     assert!(resolution.contains("\"winner\": null"));
+}
+
+#[test]
+fn why_not_json_uses_resolution_and_diagnostic_shapes() {
+    let report = WhyNotReport {
+        command: "tool".to_owned(),
+        candidates: vec![candidate(1, "/bin", "/bin/tool", true)],
+        searched_directories: vec!["/bin".to_owned()],
+        related_hints: vec![RelatedExecutableHint {
+            command: "toolx".to_owned(),
+            paths: vec!["/bin/toolx".to_owned()],
+        }],
+        path_diagnostics: vec![Diagnostic {
+            kind: IssueKind::Empty,
+            message: "entry 2 is empty".to_owned(),
+            entry_index: Some(2),
+            entry_value: Some(String::new()),
+            related_indexes: Vec::new(),
+        }],
+        advice: vec!["The exact command is already available from PATH.".to_owned()],
+    };
+
+    let output = dumps_json(&why_not_to_json(&report)).expect("render why-not json");
+
+    assert!(output.contains("\"found\": true"));
+    assert!(output.contains("\"winner\": {"));
+    assert!(output.contains("\"entry_index\": 1"));
+    assert!(output.contains("\"path_diagnostics\": ["));
+    assert!(output.contains("\"kind\": \"empty\""));
+    assert!(output.contains("\"advice\": ["));
 }
 
 #[test]
