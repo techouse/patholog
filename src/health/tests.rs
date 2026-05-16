@@ -42,6 +42,31 @@ fn summarize_health_maps_warning_and_error_severity() {
 }
 
 #[test]
+fn summarize_health_scores_each_issue_kind() {
+    for (kind, expected_score, expected_severity) in [
+        (IssueKind::Missing, 85, HealthSeverity::Error),
+        (IssueKind::NotDirectory, 85, HealthSeverity::Error),
+        (IssueKind::Unreadable, 85, HealthSeverity::Error),
+        (IssueKind::Empty, 85, HealthSeverity::Error),
+        (IssueKind::Duplicate, 95, HealthSeverity::Warning),
+        (IssueKind::Unwanted, 95, HealthSeverity::Warning),
+        (IssueKind::SuspiciousOrder, 95, HealthSeverity::Warning),
+        (IssueKind::ShadowedCommand, 95, HealthSeverity::Warning),
+    ] {
+        let report = summarize_health(doctor_report(
+            Vec::new(),
+            vec![diagnostic(kind, 1, "/issue")],
+        ));
+
+        assert_eq!(report.score, expected_score, "score for {kind:?}");
+        assert_eq!(
+            report.worst_severity, expected_severity,
+            "severity for {kind:?}"
+        );
+    }
+}
+
+#[test]
 fn summarize_health_counts_issue_kinds_by_stable_names() {
     let report = summarize_health(doctor_report(
         Vec::new(),

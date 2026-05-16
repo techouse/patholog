@@ -319,15 +319,96 @@ fn health_json_includes_stable_fields() {
     );
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert!(result.stdout.contains("\"variable\": \"path\""));
-    assert!(result.stdout.contains("\"score\": 85"));
-    assert!(result.stdout.contains("\"healthy\": false"));
-    assert!(result.stdout.contains("\"entry_count\": 1"));
-    assert!(result.stdout.contains("\"issue_count\": 1"));
-    assert!(result.stdout.contains("\"worst_severity\": \"error\""));
-    assert!(result.stdout.contains("\"counts\": {"));
-    assert!(result.stdout.contains("\"missing\": 1"));
-    assert!(result.stdout.contains("\"diagnostics\": ["));
+    let json = parse_json(&result.stdout);
+    let object = json.as_object().expect("health json object");
+    assert_eq!(
+        object.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "counts",
+            "diagnostics",
+            "entry_count",
+            "healthy",
+            "issue_count",
+            "score",
+            "variable",
+            "worst_severity",
+        ]
+    );
+    assert_eq!(json["variable"].as_str(), Some("path"));
+    assert_eq!(json["score"].as_u64(), Some(85));
+    assert_eq!(json["healthy"].as_bool(), Some(false));
+    assert_eq!(json["entry_count"].as_u64(), Some(1));
+    assert_eq!(json["issue_count"].as_u64(), Some(1));
+    assert_eq!(json["worst_severity"].as_str(), Some("error"));
+    assert_eq!(json["counts"]["missing"].as_u64(), Some(1));
+
+    let diagnostics = json["diagnostics"].as_array().expect("diagnostics array");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["kind"].as_str(), Some("missing"));
+    assert_eq!(diagnostics[0]["entry_index"].as_u64(), Some(1));
+    assert_eq!(
+        diagnostics[0]["entry_value"].as_str(),
+        Some(missing.to_str().expect("utf-8 path"))
+    );
+    assert!(
+        diagnostics[0]["related_indexes"]
+            .as_array()
+            .expect("related indexes array")
+            .is_empty()
+    );
+}
+
+#[test]
+fn health_windows_mode_uses_semicolon_separators() {
+    let (_directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+    let file = root.join("not-dir");
+    std::fs::write(&file, "not a directory").expect("write file");
+
+    let result = run(
+        ["health", "--platform", "windows", "--json"],
+        context(
+            &format!("{};{};", missing.display(), file.display()),
+            Some(".EXE"),
+        ),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    let json = parse_json(&result.stdout);
+    assert_eq!(json["entry_count"].as_u64(), Some(3));
+    assert_eq!(json["issue_count"].as_u64(), Some(3));
+    assert_eq!(json["score"].as_u64(), Some(55));
+    assert_eq!(json["worst_severity"].as_str(), Some("error"));
+    assert_eq!(json["counts"]["missing"].as_u64(), Some(1));
+    assert_eq!(json["counts"]["not_directory"].as_u64(), Some(1));
+    assert_eq!(json["counts"]["empty"].as_u64(), Some(1));
+}
+
+#[test]
+fn health_does_not_emit_shadowed_command_diagnostics() {
+    let (directory, root) = relative_tempdir();
+    let first = root.join("first");
+    let second = root.join("second");
+    make_executable(&first.join("tool"));
+    make_executable(&second.join("tool"));
+
+    let result = run(
+        ["health", "--platform", "posix", "--json"],
+        context_with_home(
+            &format!("{}:{}", first.display(), second.display()),
+            None,
+            directory.path(),
+        ),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    let json = parse_json(&result.stdout);
+    let diagnostics = json["diagnostics"].as_array().expect("diagnostics array");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic["kind"].as_str() != Some("shadowed_command"))
+    );
 }
 
 #[test]
@@ -1507,7 +1588,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.9.0\n");
+    assert_eq!(result.stdout, "patholog 0.9.1\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -1812,6 +1893,10 @@ fn backup_paths_for(profile: &Path) -> Vec<std::path::PathBuf> {
         .collect::<Vec<_>>();
     paths.sort();
     paths
+}
+
+fn parse_json(stdout: &str) -> serde_json::Value {
+    serde_json::from_str(stdout).expect("parse json")
 }
 
 fn write_config(directory: &Path, content: &str) -> std::path::PathBuf {

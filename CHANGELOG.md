@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.1 - 2026-05-16
+
+- Hardened `patholog health` tests with parsed JSON contract assertions and Windows separator coverage.
+- Added explicit health scoring coverage for every diagnostic issue kind.
+- Clarified that health scores are advisory and `doctor --fail-on` remains the CI gate.
+
 ## 0.9.0 - 2026-05-16
 
 - Added `patholog health` for read-only machine-readable PATH and MANPATH health scoring.
