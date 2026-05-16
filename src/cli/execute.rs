@@ -9,15 +9,17 @@ use crate::config::{
     merge_fail_on, merge_presets,
 };
 use crate::doctor::{diagnose_command_path_with_policy, diagnose_path_with_policy};
+use crate::health::summarize_health;
 use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 use crate::output::human::{
     format_apply_outcome, format_apply_plan, format_config_check, format_config_print,
-    format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
-    format_why_not,
+    format_conflicts, format_doctor, format_health, format_print, format_shell_profile_scan,
+    format_why, format_why_not,
 };
 use crate::output::json::{
     apply_outcome_to_json, apply_plan_to_json, config_to_json, doctor_to_json, dumps_json,
-    entries_to_json, resolution_to_json, shell_profile_scan_to_json, why_not_to_json,
+    entries_to_json, health_to_json, resolution_to_json, shell_profile_scan_to_json,
+    why_not_to_json,
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
@@ -30,13 +32,14 @@ use super::fail_on::parse_fail_on;
 use super::types::{
     ApplyOptions, CleanOptions, Cli, CliResult, Command, CommandContext, CompletionOptions,
     ConfigCheckOptions, ConfigCommand, ConfigOptions, ConfigPrintOptions, DoctorOptions,
-    PrintOptions, ResolutionOptions, ScanOptions,
+    HealthOptions, PrintOptions, ResolutionOptions, ScanOptions,
 };
 
 pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
     match cli.command {
         Command::Print(options) => run_print(options, context),
         Command::Doctor(options) => run_doctor(options, context),
+        Command::Health(options) => run_health(options, context),
         Command::Why(options) => run_why(options, context),
         Command::WhyNot(options) => run_why_not(options, context),
         Command::Conflicts(options) => run_conflicts(options, context),
@@ -122,6 +125,32 @@ fn run_doctor(options: DoctorOptions, context: &CommandContext) -> CliResult {
         stdout,
         stderr: String::new(),
     }
+}
+
+fn run_health(options: HealthOptions, context: &CommandContext) -> CliResult {
+    let config = match load_optional_config(options.config.as_deref(), &context.cwd) {
+        Ok(config) => config,
+        Err(message) => return CliResult::error(message),
+    };
+    let config_policy = config_policy(config.as_ref(), options.variable);
+    let policy = path_policy(
+        config_policy,
+        &options.drop_entries,
+        &options.presets,
+        options.variable,
+    );
+    let doctor_report = diagnose_path_with_policy(
+        variable_value(context, options.variable),
+        options.common.platform,
+        context.pathext.as_deref(),
+        options.variable,
+        &policy,
+    );
+    let report = summarize_health(doctor_report);
+    if options.common.json {
+        return json_result(health_to_json(&report));
+    }
+    CliResult::success(format_health(&report))
 }
 
 fn run_why(options: ResolutionOptions, context: &CommandContext) -> CliResult {

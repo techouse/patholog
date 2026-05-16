@@ -10,6 +10,7 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 ```sh
 patholog doctor
+patholog health --json
 patholog doctor --command python
 patholog why python
 patholog why-not poetry
@@ -43,6 +44,7 @@ The goal is to explain before changing anything.
 ```sh
 patholog print [--json] [--platform auto|posix|windows] [--var path|manpath]
 patholog doctor [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--fail-on=missing,duplicate,...] [--command <command>] [--config <file|auto>]
+patholog health [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
 patholog why <command> [--json] [--platform auto|posix|windows]
 patholog why-not <command> [--json] [--platform auto|posix|windows]
 patholog conflicts <command> [--json] [--platform auto|posix|windows]
@@ -67,7 +69,14 @@ patholog doctor --command python
 patholog doctor --drop /sw/bin --fail-on=unwanted
 ```
 
-`--var manpath` switches `print`, `doctor`, and `clean` to `MANPATH`. Command resolution and profile planning stay PATH-only. `clean --var manpath` preserves empty MANPATH components because common man implementations use them to include the system default manpath.
+`health` summarizes those diagnostics as a deterministic score, issue counts, worst severity, and the diagnostics used to compute the score:
+
+```sh
+patholog health --json
+patholog health --var manpath
+```
+
+`--var manpath` switches `print`, `doctor`, `health`, and `clean` to `MANPATH`. Command resolution and profile planning stay PATH-only. `clean --var manpath` preserves empty MANPATH components because common man implementations use them to include the system default manpath.
 
 `scan` reads known shell startup profiles under the home directory and reports likely PATH mutation lines. It does not source or edit those files:
 
@@ -78,10 +87,11 @@ patholog scan --home /tmp/example-home
 
 ## Output Modes
 
-Human output is the default. JSON output is available for `print`, `doctor`, `why`, `why-not`, `conflicts`, `scan`, and `apply`:
+Human output is the default. JSON output is available for `print`, `doctor`, `health`, `why`, `why-not`, `conflicts`, `scan`, and `apply`:
 
 ```sh
 patholog doctor --json
+patholog health --json
 patholog why python --json
 patholog why-not poetry --json
 patholog scan --json
@@ -116,7 +126,7 @@ patholog apply --shell zsh --yes --no-backup
 
 ## Config Files
 
-`--config <file>` lets `doctor`, `clean`, and `apply` load declarative policy defaults. CLI flags append after config values:
+`--config <file>` lets `doctor`, `health`, `clean`, and `apply` load declarative policy defaults. CLI flags append after config values:
 
 ```toml
 version = 1
@@ -133,6 +143,8 @@ fail_on = ["duplicate"]
 ```
 
 Use `patholog config check --config patholog.toml` to validate a file, or `patholog config print --config patholog.toml --json` to inspect normalized policy. `--config auto` searches only the current working directory for `patholog.toml`, then `.patholog.toml`.
+
+`health` uses config `drop` and `preset` policy for scoring, but `fail_on` remains specific to `doctor`.
 
 ## Exit Codes
 

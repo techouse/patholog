@@ -8,7 +8,7 @@ fn binary_wrapper_writes_stdout_and_exits_successfully() {
         .arg("--version")
         .assert()
         .success()
-        .stdout("patholog 0.8.0\n");
+        .stdout("patholog 0.9.0\n");
 }
 
 #[test]

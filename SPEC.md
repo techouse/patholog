@@ -210,6 +210,28 @@ v0.8 still defers:
 
 ---
 
+## 1.9 Machine-Readable Health Score Milestone (v0.9)
+
+v0.9 adds a read-only health summary command. It converts existing `doctor` diagnostics into a compact deterministic
+score for PATH or MANPATH without changing the detailed `doctor` report.
+
+v0.9 command:
+
+```bash
+patholog health [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+```
+
+v0.9 still defers:
+
+* arbitrary path-like variables beyond `PATH` and `MANPATH`
+* automatic reordering
+* arbitrary shell profile PATH-line rewriting
+* user-global config discovery
+* package manager integration
+* daemon/background `watch`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -325,6 +347,17 @@ editing those files.
 
 ---
 
+### 3.8 Summarize PATH or MANPATH health for automation
+
+```bash
+patholog health --json
+patholog health --var manpath
+```
+
+Should report a compact score, issue counts, worst severity, and the diagnostics used to compute the score.
+
+---
+
 ## 4. Initial CLI Surface (v0.1)
 
 ### Commands
@@ -418,6 +451,17 @@ patholog config print --config <file|auto> [--json]
 
 Config files are policy-only. They do not configure shell, profile path, backup behavior, output mode, platform, or
 mutation consent.
+
+---
+
+## 4.7 v0.9 Health Score Addition
+
+```bash
+patholog health [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
+```
+
+`health` is a read-only summary of existing `doctor` diagnostics. It does not support `--command`, `--fail-on`, or any
+mutation.
 
 ---
 
@@ -522,7 +566,37 @@ executable candidate was found later in PATH but an earlier candidate wins.
 
 ---
 
-## 5.3 `why <command>`
+## 5.3 `health`
+
+```bash
+patholog health
+patholog health --json
+```
+
+Summarizes PATH or MANPATH health using the same diagnostic engine and policy inputs as `doctor`.
+
+### Output must include
+
+* score from `0` to `100`
+* healthy boolean
+* entry and issue counts
+* worst severity: `none`, `warning`, or `error`
+* diagnostic counts by stable issue kind
+* diagnostics using the existing diagnostic JSON shape
+
+### Scoring
+
+Start at `100`, subtract `15` for each `missing`, `not_directory`, `unreadable`, or `empty` diagnostic, subtract `5`
+for each `duplicate`, `unwanted`, or `suspicious_order` diagnostic, and clamp at `0`.
+
+Exit code:
+
+* `0` when health calculation succeeds, even if issues are found
+* `1` on usage or runtime error
+
+---
+
+## 5.4 `why <command>`
 
 ```bash
 patholog why python
@@ -577,7 +651,7 @@ Exit code:
 
 ---
 
-## 5.4 `why-not <command>`
+## 5.5 `why-not <command>`
 
 ```bash
 patholog why-not poetry
@@ -629,7 +703,7 @@ Exit code:
 
 ---
 
-## 5.5 `conflicts <command>`
+## 5.6 `conflicts <command>`
 
 ```bash
 patholog conflicts python
@@ -662,7 +736,7 @@ Exit code:
 
 ---
 
-## 5.5 `clean`
+## 5.7 `clean`
 
 ```bash
 patholog clean --stdout
@@ -732,7 +806,7 @@ Exit code:
 
 ---
 
-## 5.6 `completions`
+## 5.8 `completions`
 
 ```bash
 patholog completions zsh
@@ -753,7 +827,7 @@ Exit code:
 
 ---
 
-## 5.7 `scan`
+## 5.9 `scan`
 
 ```bash
 patholog scan
@@ -782,7 +856,7 @@ Windows mode considers the common PowerShell profile paths under `%USERPROFILE%`
 
 ---
 
-## 5.8 `apply`
+## 5.10 `apply`
 
 ```bash
 patholog apply --dry-run --shell zsh
@@ -820,15 +894,15 @@ Exit code:
 
 ---
 
-## 5.9 `--drop` and `--preset`
+## 5.11 `--drop` and `--preset`
 
-`--drop <entry>` is an exact opt-in cleanup rule for `doctor`, `clean`, and `apply`.
+`--drop <entry>` is an exact opt-in cleanup rule for `doctor`, `health`, `clean`, and `apply`.
 
 Behaviour:
 
 * match after existing platform comparison-key normalisation
 * do not use glob, regex, `~`, or environment expansion
-* report `unwanted` diagnostics in `doctor`
+* report `unwanted` diagnostics in `doctor` and `health`
 * remove matching entries before first-win deduplication in `clean` and `apply`
 
 `--preset homebrew|cargo|pyenv|fink` enables built-in policy. `homebrew`, `cargo`, and `pyenv` are diagnostic-only
@@ -836,12 +910,13 @@ ordering presets. `fink` marks `/sw/bin` and `/sw/sbin` as unwanted for PATH, an
 
 ---
 
-## 5.10 Config Files
+## 5.12 Config Files
 
 ```bash
 patholog config check --config patholog.toml
 patholog config print --config patholog.toml --json
 patholog doctor --config patholog.toml
+patholog health --config patholog.toml
 patholog clean --stdout --config auto
 ```
 
@@ -864,8 +939,8 @@ fail_on = ["duplicate"]
 Behaviour:
 
 * reject unsupported `version` values and unknown keys
-* apply `[path]` to PATH commands, `doctor --command`, and `apply`
-* apply `[manpath]` to `doctor --var manpath` and `clean --var manpath`
+* apply `[path]` to PATH commands, `doctor --command`, `health`, and `apply`
+* apply `[manpath]` to `doctor --var manpath`, `health --var manpath`, and `clean --var manpath`
 * treat config values as defaults; repeated CLI flags append after config values
 * `--config auto` searches the current working directory for `patholog.toml`, then `.patholog.toml`
 * operational commands ignore missing `--config auto`; `config check` and `config print` fail when auto finds nothing
@@ -996,9 +1071,11 @@ Default output:
 Support JSON for:
 
 * `doctor`
+* `health`
 * `print`
 * `conflicts`
 * `why`
+* `why-not`
 
 This is important for CI and editor tooling.
 
@@ -1149,6 +1226,7 @@ For human output:
 
 * `print`
 * `doctor`
+* `health`
 * `why`
 * `why-not`
 * `conflicts`
@@ -1159,7 +1237,7 @@ For JSON output, compare exact output for `print`, `doctor`, `why`, `conflicts`,
 case against `/Users/klemen/Work/patholog.py/tests/fixtures/golden`.
 
 For Rust-only output, include `why-not` human and JSON tests with exact lookup, related hints, PATH diagnostics, and
-advice fields.
+advice fields. Include `health` human and JSON tests for scoring, counts, severities, and diagnostics.
 
 ## 12.4 Integration tests
 
@@ -1199,6 +1277,7 @@ Minimum coverage:
 15. unreadable directory diagnostics when the host can represent them
 16. `doctor --command` reports shadowed candidates
 17. `scan` reports PATH mutations in shell startup profiles
+18. `health` reports deterministic score, counts, and severity
 
 ---
 
@@ -1241,7 +1320,7 @@ Explain:
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.8
+## 15. Explicit Non-Goals for v0.1 through v0.9
 
 Do not implement yet:
 
@@ -1260,10 +1339,9 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.8 features:
+Possible post-v0.9 features:
 
 * `watch` to detect PATH drift
-* machine-readable health score
 
 ---
 

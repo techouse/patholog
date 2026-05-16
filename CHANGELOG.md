@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.0 - 2026-05-16
+
+- Added `patholog health` for read-only machine-readable PATH and MANPATH health scoring.
+- Added human and JSON health output with score, healthy status, issue counts, worst severity, and diagnostics.
+- Reused doctor drop, preset, and config policy while keeping `doctor --fail-on` as the only diagnostic exit gate.
+
 ## 0.8.0 - 2026-05-13
 
 - Added `patholog why-not <command>` for read-only missing-command analysis.

@@ -11,6 +11,7 @@ pub(crate) mod apply;
 pub(crate) mod clean;
 pub(crate) mod config;
 pub(crate) mod doctor;
+pub(crate) mod health;
 pub(crate) mod normalize;
 pub(crate) mod output;
 pub(crate) mod path_env;

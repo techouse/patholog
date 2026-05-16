@@ -1,4 +1,4 @@
-use super::{ExitCode, IssueKind, PresetKind};
+use super::{ExitCode, HealthSeverity, IssueKind, PresetKind};
 
 #[test]
 fn exit_codes_match_contract() {
@@ -24,6 +24,13 @@ fn issue_kinds_match_cli_and_json_contract() {
     assert_eq!(IssueKind::Unwanted.as_str(), "unwanted");
     assert_eq!("duplicate".parse::<IssueKind>(), Ok(IssueKind::Duplicate));
     assert!("unknown".parse::<IssueKind>().is_err());
+}
+
+#[test]
+fn health_severities_match_json_contract() {
+    assert_eq!(HealthSeverity::None.as_str(), "none");
+    assert_eq!(HealthSeverity::Warning.as_str(), "warning");
+    assert_eq!(HealthSeverity::Error.as_str(), "error");
 }
 
 #[test]

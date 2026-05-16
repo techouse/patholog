@@ -1,16 +1,18 @@
+use std::collections::BTreeMap;
+
 use crate::model::{
-    ApplyAction, ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, IssueKind, PathEntry,
-    PathMutation, PathVariable, RelatedExecutableHint, ResolutionCandidate, ResolutionReport,
-    ShellKind, ShellProfile, ShellProfileScanReport, WhyNotReport,
+    ApplyAction, ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, HealthReport, HealthSeverity,
+    IssueKind, PathEntry, PathMutation, PathVariable, RelatedExecutableHint, ResolutionCandidate,
+    ResolutionReport, ShellKind, ShellProfile, ShellProfileScanReport, WhyNotReport,
 };
 
 use super::human::{
-    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_print,
-    format_shell_profile_scan, format_why, format_why_not,
+    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_health,
+    format_print, format_shell_profile_scan, format_why, format_why_not,
 };
 use super::json::{
-    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, resolution_to_json,
-    shell_profile_scan_to_json, why_not_to_json,
+    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, health_to_json,
+    resolution_to_json, shell_profile_scan_to_json, why_not_to_json,
 };
 
 #[test]
@@ -113,6 +115,57 @@ fn format_doctor_renders_unwanted_entries_and_variable_name() {
     assert_eq!(
         format_doctor(&report),
         "MANPATH entries: 1\n\nUnwanted entries:\n  1  /sw/share/man\n"
+    );
+}
+
+#[test]
+fn format_health_reports_clean_status() {
+    let report = health_report(
+        PathVariable::Path,
+        100,
+        true,
+        1,
+        Vec::new(),
+        HealthSeverity::None,
+    );
+
+    assert_eq!(
+        format_health(&report),
+        "PATH health: 100/100\nStatus: healthy\nEntries: 1\nIssues: 0\nWorst severity: none\n"
+    );
+}
+
+#[test]
+fn format_health_reports_warning_counts() {
+    let report = health_report(
+        PathVariable::Path,
+        95,
+        false,
+        2,
+        vec![(IssueKind::Duplicate, 1)],
+        HealthSeverity::Warning,
+    );
+
+    assert_eq!(
+        format_health(&report),
+        "PATH health: 95/100\nStatus: issues found\nEntries: 2\nIssues: 1\nWorst severity: warning\n\nCounts:\n  duplicate  1\n"
+    );
+}
+
+#[test]
+fn format_health_reports_error_counts_before_warning_counts() {
+    let report = health_report(
+        PathVariable::Manpath,
+        80,
+        false,
+        3,
+        vec![(IssueKind::Duplicate, 1), (IssueKind::Missing, 1)],
+        HealthSeverity::Error,
+    );
+
+    assert_eq!(
+        format_health(&report),
+        "MANPATH health: 80/100\nStatus: issues found\nEntries: 3\nIssues: 2\nWorst severity: error\n\nCounts:\n  missing  1\n  duplicate  1\n"
     );
 }
 
@@ -285,6 +338,37 @@ fn why_not_json_uses_resolution_and_diagnostic_shapes() {
 }
 
 #[test]
+fn health_json_uses_summary_and_diagnostic_shapes() {
+    let mut report = health_report(
+        PathVariable::Path,
+        85,
+        false,
+        2,
+        vec![(IssueKind::Missing, 1)],
+        HealthSeverity::Error,
+    );
+    report.diagnostics = vec![Diagnostic {
+        kind: IssueKind::Missing,
+        message: "/missing does not exist".to_owned(),
+        entry_index: Some(1),
+        entry_value: Some("/missing".to_owned()),
+        related_indexes: Vec::new(),
+    }];
+
+    let output = dumps_json(&health_to_json(&report)).expect("render health json");
+
+    assert!(output.contains("\"variable\": \"path\""));
+    assert!(output.contains("\"score\": 85"));
+    assert!(output.contains("\"healthy\": false"));
+    assert!(output.contains("\"entry_count\": 2"));
+    assert!(output.contains("\"issue_count\": 1"));
+    assert!(output.contains("\"worst_severity\": \"error\""));
+    assert!(output.contains("\"missing\": 1"));
+    assert!(output.contains("\"diagnostics\": ["));
+    assert!(output.contains("\"kind\": \"missing\""));
+}
+
+#[test]
 fn doctor_json_includes_report_variable() {
     let report = DoctorReport {
         variable: PathVariable::Manpath,
@@ -447,6 +531,27 @@ fn candidate(entry_index: usize, directory: &str, path: &str, wins: bool) -> Res
         directory: directory.to_owned(),
         path: path.to_owned(),
         wins,
+    }
+}
+
+fn health_report(
+    variable: PathVariable,
+    score: u8,
+    healthy: bool,
+    entry_count: usize,
+    counts: Vec<(IssueKind, usize)>,
+    worst_severity: HealthSeverity,
+) -> HealthReport {
+    let counts = counts.into_iter().collect::<BTreeMap<_, _>>();
+    HealthReport {
+        variable,
+        score,
+        healthy,
+        entry_count,
+        issue_count: counts.values().sum(),
+        worst_severity,
+        counts,
+        diagnostics: Vec::new(),
     }
 }
 
