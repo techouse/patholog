@@ -12,6 +12,7 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 patholog doctor
 patholog doctor --command python
 patholog why python
+patholog why-not poetry
 patholog conflicts cargo
 patholog scan
 patholog clean --stdout
@@ -43,6 +44,7 @@ The goal is to explain before changing anything.
 patholog print [--json] [--platform auto|posix|windows] [--var path|manpath]
 patholog doctor [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--fail-on=missing,duplicate,...] [--command <command>] [--config <file|auto>]
 patholog why <command> [--json] [--platform auto|posix|windows]
+patholog why-not <command> [--json] [--platform auto|posix|windows]
 patholog conflicts <command> [--json] [--platform auto|posix|windows]
 patholog scan [--json] [--platform auto|posix|windows] [--home <dir>]
 patholog clean --stdout [--platform auto|posix|windows] [--var path|manpath] [--drop <entry>] [--preset homebrew|cargo|pyenv|fink] [--config <file|auto>]
@@ -76,13 +78,16 @@ patholog scan --home /tmp/example-home
 
 ## Output Modes
 
-Human output is the default. JSON output is available for `print`, `doctor`, `why`, `conflicts`, `scan`, and `apply`:
+Human output is the default. JSON output is available for `print`, `doctor`, `why`, `why-not`, `conflicts`, `scan`, and `apply`:
 
 ```sh
 patholog doctor --json
 patholog why python --json
+patholog why-not poetry --json
 patholog scan --json
 ```
+
+`why-not` explains missing-command cases by combining exact PATH lookup, related executable hints, PATH health diagnostics, and safe advisory next checks. It is read-only and does not run package managers or edit shell configuration.
 
 `clean --stdout` prints a raw PATH or MANPATH string suitable for review or manual export. `clean --export` prints a shell-ready assignment snippet for `zsh`, `bash`, `fish`, or `pwsh`:
 
@@ -134,7 +139,7 @@ Use `patholog config check --config patholog.toml` to validate a file, or `patho
 - `0`: success
 - `1`: usage or runtime error
 - `2`: `doctor --fail-on` matched selected diagnostics
-- `3`: command not found for `why` or `conflicts`
+- `3`: command not found for `why`, `why-not`, or `conflicts`
 
 ## Platform Model
 

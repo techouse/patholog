@@ -13,16 +13,18 @@ use crate::model::{ExitCode, PathVariable, PlatformMode, PresetKind, ShellKind};
 use crate::output::human::{
     format_apply_outcome, format_apply_plan, format_config_check, format_config_print,
     format_conflicts, format_doctor, format_print, format_shell_profile_scan, format_why,
+    format_why_not,
 };
 use crate::output::json::{
     apply_outcome_to_json, apply_plan_to_json, config_to_json, doctor_to_json, dumps_json,
-    entries_to_json, resolution_to_json, shell_profile_scan_to_json,
+    entries_to_json, resolution_to_json, shell_profile_scan_to_json, why_not_to_json,
 };
 use crate::path_env::parse_path;
 use crate::platform::resolve_platform_rules;
 use crate::policy::PathPolicy;
 use crate::profile_scan::scan_shell_profiles;
 use crate::resolve::resolve_command;
+use crate::why_not::{WhyNotOptions, analyze_why_not};
 
 use super::fail_on::parse_fail_on;
 use super::types::{
@@ -36,6 +38,7 @@ pub(super) fn execute(cli: Cli, context: &CommandContext) -> CliResult {
         Command::Print(options) => run_print(options, context),
         Command::Doctor(options) => run_doctor(options, context),
         Command::Why(options) => run_why(options, context),
+        Command::WhyNot(options) => run_why_not(options, context),
         Command::Conflicts(options) => run_conflicts(options, context),
         Command::Clean(options) => run_clean(options, context),
         Command::Apply(options) => run_apply(options, context),
@@ -139,6 +142,27 @@ fn run_why(options: ResolutionOptions, context: &CommandContext) -> CliResult {
         format_why(&report)
     };
     resolution_result(stdout, report.candidates.is_empty())
+}
+
+fn run_why_not(options: ResolutionOptions, context: &CommandContext) -> CliResult {
+    let report = analyze_why_not(&WhyNotOptions {
+        path_value: &context.path_value,
+        command: &options.command,
+        platform_mode: options.common.platform,
+        pathext: context.pathext.as_deref(),
+        cwd: &context.cwd,
+        home_dir: context.home_dir.as_deref(),
+        user_profile_dir: context.user_profile_dir.as_deref(),
+    });
+    let stdout = if options.common.json {
+        match dumps_json(&why_not_to_json(&report)) {
+            Ok(stdout) => stdout,
+            Err(error) => return CliResult::error(error.to_string()),
+        }
+    } else {
+        format_why_not(&report)
+    };
+    resolution_result(stdout, !report.found())
 }
 
 fn run_conflicts(options: ResolutionOptions, context: &CommandContext) -> CliResult {

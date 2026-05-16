@@ -9,6 +9,7 @@ mod preset;
 mod resolution;
 mod scan;
 mod shell;
+mod why_not;
 
 pub use apply::{ApplyAction, ApplyOutcome, ApplyPlan};
 pub use diagnostic::{Diagnostic, IssueKind};
@@ -21,6 +22,7 @@ pub use preset::PresetKind;
 pub use resolution::{RelatedExecutableHint, ResolutionCandidate, ResolutionReport};
 pub use scan::{PathMutation, ShellProfile, ShellProfileScanReport};
 pub use shell::ShellKind;
+pub use why_not::WhyNotReport;
 
 #[cfg(test)]
 #[path = "model/tests.rs"]

@@ -261,9 +261,97 @@ fn completions_outputs_scripts_for_supported_shells() {
         assert!(result.stdout.contains("clean"));
         assert!(result.stdout.contains("config"));
         assert!(result.stdout.contains("completions"));
+        assert!(result.stdout.contains("why-not"));
         assert!(result.stdout.contains("yes"));
         assert!(result.stdout.contains("no-backup"));
     }
+}
+
+#[test]
+fn why_not_found_command_reports_available() {
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    make_executable(&bin.join("tool"));
+
+    let result = run(
+        ["why-not", "tool", "--platform", "posix"],
+        context_with_home(&bin.display().to_string(), None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Available in PATH:"));
+    assert!(
+        result
+            .stdout
+            .contains("The exact command is already available.")
+    );
+}
+
+#[test]
+fn why_not_missing_command_reports_searched_directories_and_related_hints() {
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    make_executable(&bin.join("python3"));
+
+    let result = run(
+        ["why-not", "python", "--platform", "posix"],
+        context_with_home(&bin.display().to_string(), None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::CommandNotFound);
+    assert!(result.stdout.contains("Not found in PATH."));
+    assert!(result.stdout.contains("Searched directories:"));
+    assert!(result.stdout.contains(&bin.display().to_string()));
+    assert!(
+        result
+            .stdout
+            .contains("Related executables, not PATH matches:")
+    );
+    assert!(result.stdout.contains("python3"));
+}
+
+#[test]
+fn why_not_missing_command_reports_path_diagnostics() {
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+    let file = root.join("not-dir");
+    std::fs::write(&file, "not a directory").expect("write file");
+
+    let result = run(
+        ["why-not", "tool", "--platform", "posix"],
+        context_with_home(
+            &format!("{}:{}:", missing.display(), file.display()),
+            None,
+            directory.path(),
+        ),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::CommandNotFound);
+    assert!(result.stdout.contains("PATH diagnostics:"));
+    assert!(result.stdout.contains("missing"));
+    assert!(result.stdout.contains("not_directory"));
+    assert!(result.stdout.contains("empty"));
+}
+
+#[test]
+fn why_not_json_includes_stable_fields() {
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+
+    let result = run(
+        ["why-not", "tool", "--platform", "posix", "--json"],
+        context_with_home(&missing.display().to_string(), None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::CommandNotFound);
+    assert!(result.stdout.contains("\"command\": \"tool\""));
+    assert!(result.stdout.contains("\"found\": false"));
+    assert!(result.stdout.contains("\"winner\": null"));
+    assert!(result.stdout.contains("\"candidates\": []"));
+    assert!(result.stdout.contains("\"searched_directories\": ["));
+    assert!(result.stdout.contains("\"related_hints\": []"));
+    assert!(result.stdout.contains("\"path_diagnostics\": ["));
+    assert!(result.stdout.contains("\"advice\": ["));
 }
 
 #[test]
@@ -1261,7 +1349,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.7.2\n");
+    assert_eq!(result.stdout, "patholog 0.8.0\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -1593,3 +1681,16 @@ fn make_permissions_executable(path: &Path) {
 
 #[cfg(not(unix))]
 fn make_permissions_executable(_path: &Path) {}
+
+fn relative_tempdir() -> (tempfile::TempDir, std::path::PathBuf) {
+    let directory = tempfile::Builder::new()
+        .prefix(".patholog-test-")
+        .tempdir_in(".")
+        .expect("create relative tempdir");
+    let relative_path = directory
+        .path()
+        .file_name()
+        .expect("tempdir has directory name")
+        .into();
+    (directory, relative_path)
+}

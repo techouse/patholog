@@ -18,6 +18,7 @@ pub(crate) mod platform;
 pub(crate) mod policy;
 pub(crate) mod profile_scan;
 pub(crate) mod resolve;
+pub(crate) mod why_not;
 
 #[cfg(feature = "fuzzing")]
 /// Fuzzing-only entry points for internal read-only behavior.

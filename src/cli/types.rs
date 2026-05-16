@@ -91,6 +91,7 @@ pub(super) enum Command {
     Print(PrintOptions),
     Doctor(DoctorOptions),
     Why(ResolutionOptions),
+    WhyNot(ResolutionOptions),
     Conflicts(ResolutionOptions),
     Clean(CleanOptions),
     Apply(ApplyOptions),

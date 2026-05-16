@@ -3,7 +3,7 @@ use serde_json::{Value, json};
 use crate::config::{ConfigPolicy, LoadedConfig};
 use crate::model::{
     ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation,
-    ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport,
+    ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport, WhyNotReport,
 };
 
 pub(crate) fn dumps_json(value: &Value) -> Result<String, serde_json::Error> {
@@ -41,6 +41,28 @@ pub(crate) fn resolution_to_json(report: &ResolutionReport) -> Value {
                 "paths": hint.paths,
             })
         }).collect::<Vec<_>>(),
+    })
+}
+
+pub(crate) fn why_not_to_json(report: &WhyNotReport) -> Value {
+    json!({
+        "command": report.command,
+        "found": report.found(),
+        "winner": report.winner().map(candidate_to_json),
+        "candidates": report.candidates.iter().map(candidate_to_json).collect::<Vec<_>>(),
+        "searched_directories": report.searched_directories,
+        "related_hints": report.related_hints.iter().map(|hint| {
+            json!({
+                "command": hint.command,
+                "paths": hint.paths,
+            })
+        }).collect::<Vec<_>>(),
+        "path_diagnostics": report
+            .path_diagnostics
+            .iter()
+            .map(diagnostic_to_json)
+            .collect::<Vec<_>>(),
+        "advice": report.advice,
     })
 }
 
