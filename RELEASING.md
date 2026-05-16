@@ -24,7 +24,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.9.2"
+   version="v0.9.3"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -53,6 +53,12 @@ make package-list
 make package-check-offline
 cargo publish --dry-run --locked --allow-dirty
 ```
+
+Expected package contents are the crate metadata, `README.md`, `CHANGELOG.md`, `LICENSE`, and source files needed to
+build the library and binary. Internal project files such as integration tests, fuzz targets, scripts, release notes,
+local agent instructions, and repository automation are intentionally excluded. `SECURITY.md` and generated
+third-party license notices remain repository-level documents until a public release pass deliberately changes that
+package policy.
 
 Do not run `cargo publish` until the repository visibility, README, security policy, and install instructions are ready
 for public users.
