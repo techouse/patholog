@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.2 - 2026-05-16
+
+- Added `make package-check-offline` for release package verification using the local Cargo cache.
+- Updated release documentation to remove stale tag examples and clarify version checklist files.
+- Simplified README development guidance around `make ci` and `make pre-release`.
+
 ## 0.9.1 - 2026-05-16
 
 - Hardened `patholog health` tests with parsed JSON contract assertions and Windows separator coverage.
