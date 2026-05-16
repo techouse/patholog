@@ -9,7 +9,7 @@ FUZZ_TARGETS ?= path_clean path_parse_doctor cli_read_only
 FUZZ_SMOKE_SECONDS ?= 30
 
 .PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
-	test-doc coverage coverage-html msrv package-list package-check docs \
+	test-doc coverage coverage-html msrv package-list package-check package-check-offline docs \
 	docs-missing third-party-licenses third-party-licenses-check \
 	publish-dry-run pre-release ci fuzz-build fuzz-smoke fuzz-soak
 
@@ -66,6 +66,11 @@ package-check: ## Verify crates.io package creation
 	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
 	! grep -E '^(\.github/|\.history/|\.gitignore$$|AGENTS\.md$$|fuzz/|scripts/|src/.*/tests\.rs$$|src/.*/tests/|tests/)' $(PACKAGE_LIST)
 	$(CARGO) package --locked --allow-dirty
+
+package-check-offline: ## Verify crate package creation using only local cache
+	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
+	! grep -E '^(\.github/|\.history/|\.gitignore$$|AGENTS\.md$$|fuzz/|scripts/|src/.*/tests\.rs$$|src/.*/tests/|tests/)' $(PACKAGE_LIST)
+	$(CARGO) package --locked --allow-dirty --offline
 
 docs: ## Build library docs with docs.rs warning settings
 	RUSTDOCFLAGS='$(RUSTDOCFLAGS_DOCS)' $(CARGO) doc --locked --no-deps --lib

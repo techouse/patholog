@@ -193,10 +193,10 @@ All commands are read-only except `apply --yes`, which writes only the patholog-
 ## Development
 
 ```sh
-cargo fmt --check
-cargo clippy --all-targets --all-features --locked -- -D warnings
-cargo test --all-targets --all-features --locked
+make ci
 make pre-release
 ```
+
+Use `make ci` for normal local checks and `make pre-release` as the full gate before tagging a release.
 
 Golden parity fixtures are vendored in `tests/fixtures/golden`.

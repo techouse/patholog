@@ -5,18 +5,26 @@ unless that is explicitly part of the release scope.
 
 ## Private v0.x Release Checklist
 
-1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `README.md` examples, CLI version tests, and `CHANGELOG.md`.
+1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, CLI version tests, binary wrapper version
+   tests, and `CHANGELOG.md`.
 2. Run the full local gate:
 
    ```sh
    make pre-release
    ```
 
+   If network access is unavailable but the local Cargo cache is already populated, use this package verification
+   fallback before tagging:
+
+   ```sh
+   make package-check-offline
+   ```
+
 3. Commit the release changes.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.8.0"
+   version="v0.9.2"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -42,6 +50,7 @@ Before the first public GitHub or crates.io release, re-check package contents w
 
 ```sh
 make package-list
+make package-check-offline
 cargo publish --dry-run --locked --allow-dirty
 ```
 
