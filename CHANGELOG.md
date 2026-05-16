@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.3 - 2026-05-16
+
+- Added `make version-check` and `make release-check` for public-v1 readiness audits.
+- Expanded crate-level library docs with an injected CLI context example.
+- Documented expected package contents and intentionally excluded internal files before public release.
+
 ## 0.9.2 - 2026-05-16
 
 - Added `make package-check-offline` for release package verification using the local Cargo cache.

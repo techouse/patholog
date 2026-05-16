@@ -1,6 +1,33 @@
 #![forbid(unsafe_code)]
 
 //! PATH diagnostics and command resolution library used by the `patholog` CLI.
+//!
+//! The command-line interface is the primary product surface. The public Rust API
+//! is intentionally small and is mainly useful for tests, fuzzing, and embedding
+//! the CLI with an injected runtime context.
+//!
+//! # Example
+//!
+//! ```
+//! use std::path::PathBuf;
+//!
+//! use patholog::cli::{CommandContext, run};
+//! use patholog::model::ExitCode;
+//!
+//! let context = CommandContext {
+//!     path_value: ".".to_owned(),
+//!     manpath_value: String::new(),
+//!     pathext: None,
+//!     cwd: PathBuf::from("."),
+//!     home_dir: None,
+//!     user_profile_dir: None,
+//! };
+//!
+//! let result = run(["print", "--platform", "posix"], context);
+//!
+//! assert_eq!(result.exit_code, ExitCode::Success);
+//! assert_eq!(result.stdout, "1  .\n");
+//! ```
 
 /// Command-line parsing and execution entry points.
 pub mod cli;

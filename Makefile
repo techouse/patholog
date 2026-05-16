@@ -11,7 +11,7 @@ FUZZ_SMOKE_SECONDS ?= 30
 .PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
 	test-doc coverage coverage-html msrv package-list package-check package-check-offline docs \
 	docs-missing third-party-licenses third-party-licenses-check \
-	publish-dry-run pre-release ci fuzz-build fuzz-smoke fuzz-soak
+	publish-dry-run version-check release-check pre-release ci fuzz-build fuzz-smoke fuzz-soak
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_.-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
@@ -71,6 +71,24 @@ package-check-offline: ## Verify crate package creation using only local cache
 	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
 	! grep -E '^(\.github/|\.history/|\.gitignore$$|AGENTS\.md$$|fuzz/|scripts/|src/.*/tests\.rs$$|src/.*/tests/|tests/)' $(PACKAGE_LIST)
 	$(CARGO) package --locked --allow-dirty --offline
+
+version-check: ## Check release version references agree
+	@version="$$(sed -n 's/^version = "\([^"]*\)"$$/\1/p' Cargo.toml | head -n 1)"; \
+	if [ -z "$$version" ]; then echo "Could not read version from Cargo.toml" >&2; exit 1; fi; \
+	for file in Cargo.lock fuzz/Cargo.lock; do \
+		awk -v version="$$version" 'BEGIN { found = 0; in_package = 0 } /^\[\[package\]\]/ { in_package = 0 } /^name = "patholog"$$/ { in_package = 1 } in_package && $$0 == "version = \"" version "\"" { found = 1 } END { exit !found }' "$$file" || { echo "$$file does not contain patholog $$version" >&2; exit 1; }; \
+	done; \
+	grep -q "patholog $$version" src/cli/tests.rs || { echo "src/cli/tests.rs does not expect patholog $$version" >&2; exit 1; }; \
+	grep -q "patholog $$version" tests/binary_cli.rs || { echo "tests/binary_cli.rs does not expect patholog $$version" >&2; exit 1; }; \
+	grep -q "^## $$version " CHANGELOG.md || { echo "CHANGELOG.md is missing $$version" >&2; exit 1; }; \
+	printf 'version-check: %s\n' "$$version"
+
+release-check: ## Run public-v1 readiness audit checks
+	$(MAKE) version-check
+	$(MAKE) docs
+	$(MAKE) docs-missing
+	$(MAKE) package-list
+	$(MAKE) package-check-offline
 
 docs: ## Build library docs with docs.rs warning settings
 	RUSTDOCFLAGS='$(RUSTDOCFLAGS_DOCS)' $(CARGO) doc --locked --no-deps --lib

@@ -1588,7 +1588,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.9.2\n");
+    assert_eq!(result.stdout, "patholog 0.9.3\n");
     assert_eq!(result.stderr, "");
 }
 
