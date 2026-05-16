@@ -3,7 +3,7 @@ use std::fmt;
 use std::str::FromStr;
 
 /// Stable diagnostic issue kinds.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum IssueKind {
     /// Duplicate PATH entries after conservative comparison-key normalization.
     Duplicate,

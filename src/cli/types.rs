@@ -90,6 +90,7 @@ pub(super) struct Cli {
 pub(super) enum Command {
     Print(PrintOptions),
     Doctor(DoctorOptions),
+    Health(HealthOptions),
     Why(ResolutionOptions),
     WhyNot(ResolutionOptions),
     Conflicts(ResolutionOptions),
@@ -126,6 +127,20 @@ pub(super) struct DoctorOptions {
     pub(super) fail_on: Option<String>,
     #[arg(long, value_name = "COMMAND")]
     pub(super) command: Option<String>,
+    #[arg(long = "drop", value_name = "ENTRY")]
+    pub(super) drop_entries: Vec<String>,
+    #[arg(long = "preset", value_enum)]
+    pub(super) presets: Vec<PresetKind>,
+    #[arg(long, value_name = "FILE")]
+    pub(super) config: Option<PathBuf>,
+}
+
+#[derive(Args)]
+pub(super) struct HealthOptions {
+    #[command(flatten)]
+    pub(super) common: CommonOptions,
+    #[arg(long = "var", value_enum, default_value_t = PathVariable::Path)]
+    pub(super) variable: PathVariable,
     #[arg(long = "drop", value_name = "ENTRY")]
     pub(super) drop_entries: Vec<String>,
     #[arg(long = "preset", value_enum)]

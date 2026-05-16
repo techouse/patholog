@@ -261,10 +261,168 @@ fn completions_outputs_scripts_for_supported_shells() {
         assert!(result.stdout.contains("clean"));
         assert!(result.stdout.contains("config"));
         assert!(result.stdout.contains("completions"));
+        assert!(result.stdout.contains("health"));
         assert!(result.stdout.contains("why-not"));
         assert!(result.stdout.contains("yes"));
         assert!(result.stdout.contains("no-backup"));
     }
+}
+
+#[test]
+fn health_clean_path_returns_success() {
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    std::fs::create_dir_all(&bin).expect("create bin");
+
+    let result = run(
+        ["health", "--platform", "posix"],
+        context_with_home(&bin.display().to_string(), None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("PATH health: 100/100"));
+    assert!(result.stdout.contains("Status: healthy"));
+}
+
+#[test]
+fn health_unhealthy_path_still_returns_success() {
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+    let file = root.join("not-dir");
+    std::fs::write(&file, "not a directory").expect("write file");
+
+    let result = run(
+        ["health", "--platform", "posix"],
+        context_with_home(
+            &format!("{}:{}:", missing.display(), file.display()),
+            None,
+            directory.path(),
+        ),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("PATH health:"));
+    assert!(result.stdout.contains("Status: issues found"));
+    assert!(result.stdout.contains("missing"));
+    assert!(result.stdout.contains("not_directory"));
+    assert!(result.stdout.contains("empty"));
+}
+
+#[test]
+fn health_json_includes_stable_fields() {
+    let (directory, root) = relative_tempdir();
+    let missing = root.join("missing");
+
+    let result = run(
+        ["health", "--platform", "posix", "--json"],
+        context_with_home(&missing.display().to_string(), None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("\"variable\": \"path\""));
+    assert!(result.stdout.contains("\"score\": 85"));
+    assert!(result.stdout.contains("\"healthy\": false"));
+    assert!(result.stdout.contains("\"entry_count\": 1"));
+    assert!(result.stdout.contains("\"issue_count\": 1"));
+    assert!(result.stdout.contains("\"worst_severity\": \"error\""));
+    assert!(result.stdout.contains("\"counts\": {"));
+    assert!(result.stdout.contains("\"missing\": 1"));
+    assert!(result.stdout.contains("\"diagnostics\": ["));
+}
+
+#[test]
+fn health_var_manpath_reports_manpath() {
+    let (directory, root) = relative_tempdir();
+    let manpath = root.join("share").join("man");
+    std::fs::create_dir_all(&manpath).expect("create manpath");
+
+    let result = run(
+        ["health", "--var", "manpath", "--platform", "posix"],
+        context_with_manpath("", &manpath.display().to_string(), None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("MANPATH health: 100/100"));
+    drop(directory);
+}
+
+#[test]
+fn health_drop_reports_unwanted_entries() {
+    let (directory, root) = relative_tempdir();
+    let drop_entry = root.join("drop");
+    let keep_entry = root.join("keep");
+    std::fs::create_dir_all(&drop_entry).expect("create drop entry");
+    std::fs::create_dir_all(&keep_entry).expect("create keep entry");
+
+    let result = run(
+        [
+            "health",
+            "--platform",
+            "posix",
+            "--drop",
+            drop_entry.to_str().expect("utf-8 path"),
+        ],
+        context_with_home(
+            &format!("{}:{}", drop_entry.display(), keep_entry.display()),
+            None,
+            directory.path(),
+        ),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("Worst severity: warning"));
+    assert!(result.stdout.contains("unwanted  1"));
+}
+
+#[test]
+fn health_preset_reports_unwanted_entries() {
+    let result = run(
+        ["health", "--platform", "posix", "--preset", "fink"],
+        context("/sw/bin:/usr/bin", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("unwanted  1"));
+}
+
+#[test]
+fn health_config_applies_policy_without_fail_on_exit_code() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"config-drop\"]\nfail_on = [\"unwanted\"]\n",
+    );
+
+    let result = run(
+        [
+            "health",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("config-drop:keep", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("unwanted  1"));
+}
+
+#[test]
+fn health_config_auto_applies_local_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"auto-drop\"]\n",
+    );
+
+    let result = run(
+        ["health", "--platform", "posix", "--config", "auto"],
+        context_with_cwd("auto-drop:keep", None, directory.path()),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(result.stdout.contains("unwanted  1"));
 }
 
 #[test]
@@ -1349,7 +1507,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.8.0\n");
+    assert_eq!(result.stdout, "patholog 0.9.0\n");
     assert_eq!(result.stderr, "");
 }
 

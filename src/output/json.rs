@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 
 use crate::config::{ConfigPolicy, LoadedConfig};
 use crate::model::{
-    ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, PathEntry, PathMutation,
+    ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, HealthReport, PathEntry, PathMutation,
     ResolutionCandidate, ResolutionReport, ShellProfile, ShellProfileScanReport, WhyNotReport,
 };
 
@@ -18,6 +18,19 @@ pub(crate) fn doctor_to_json(report: &DoctorReport) -> Value {
     json!({
         "variable": report.variable.as_str(),
         "entries": report.entries.iter().map(entry_to_json).collect::<Vec<_>>(),
+        "diagnostics": report.diagnostics.iter().map(diagnostic_to_json).collect::<Vec<_>>(),
+    })
+}
+
+pub(crate) fn health_to_json(report: &HealthReport) -> Value {
+    json!({
+        "variable": report.variable.as_str(),
+        "score": report.score,
+        "healthy": report.healthy,
+        "entry_count": report.entry_count,
+        "issue_count": report.issue_count,
+        "worst_severity": report.worst_severity.as_str(),
+        "counts": health_counts_to_json(report),
         "diagnostics": report.diagnostics.iter().map(diagnostic_to_json).collect::<Vec<_>>(),
     })
 }
@@ -153,6 +166,14 @@ fn diagnostic_to_json(diagnostic: &Diagnostic) -> Value {
         "entry_value": diagnostic.entry_value,
         "related_indexes": diagnostic.related_indexes,
     })
+}
+
+fn health_counts_to_json(report: &HealthReport) -> Value {
+    let mut counts = serde_json::Map::new();
+    for (kind, count) in &report.counts {
+        counts.insert(kind.as_str().to_owned(), json!(count));
+    }
+    Value::Object(counts)
 }
 
 fn candidate_to_json(candidate: &ResolutionCandidate) -> Value {
