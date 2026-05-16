@@ -356,16 +356,31 @@ fn health_json_uses_summary_and_diagnostic_shapes() {
     }];
 
     let output = dumps_json(&health_to_json(&report)).expect("render health json");
+    let json = serde_json::from_str::<serde_json::Value>(&output).expect("parse health json");
 
-    assert!(output.contains("\"variable\": \"path\""));
-    assert!(output.contains("\"score\": 85"));
-    assert!(output.contains("\"healthy\": false"));
-    assert!(output.contains("\"entry_count\": 2"));
-    assert!(output.contains("\"issue_count\": 1"));
-    assert!(output.contains("\"worst_severity\": \"error\""));
-    assert!(output.contains("\"missing\": 1"));
-    assert!(output.contains("\"diagnostics\": ["));
-    assert!(output.contains("\"kind\": \"missing\""));
+    assert_eq!(json["variable"].as_str(), Some("path"));
+    assert_eq!(json["score"].as_u64(), Some(85));
+    assert_eq!(json["healthy"].as_bool(), Some(false));
+    assert_eq!(json["entry_count"].as_u64(), Some(2));
+    assert_eq!(json["issue_count"].as_u64(), Some(1));
+    assert_eq!(json["worst_severity"].as_str(), Some("error"));
+    assert_eq!(json["counts"]["missing"].as_u64(), Some(1));
+
+    let diagnostics = json["diagnostics"].as_array().expect("diagnostics array");
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0]["kind"].as_str(), Some("missing"));
+    assert_eq!(
+        diagnostics[0]["message"].as_str(),
+        Some("/missing does not exist")
+    );
+    assert_eq!(diagnostics[0]["entry_index"].as_u64(), Some(1));
+    assert_eq!(diagnostics[0]["entry_value"].as_str(), Some("/missing"));
+    assert!(
+        diagnostics[0]["related_indexes"]
+            .as_array()
+            .expect("related indexes array")
+            .is_empty()
+    );
 }
 
 #[test]

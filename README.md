@@ -69,12 +69,27 @@ patholog doctor --command python
 patholog doctor --drop /sw/bin --fail-on=unwanted
 ```
 
-`health` summarizes those diagnostics as a deterministic score, issue counts, worst severity, and the diagnostics used to compute the score:
+`health` summarizes those diagnostics as an advisory deterministic score, issue counts, worst severity, and the diagnostics used to compute the score:
 
 ```sh
 patholog health --json
 patholog health --var manpath
 ```
+
+Example JSON excerpt:
+
+```json
+{
+  "score": 85,
+  "healthy": false,
+  "worst_severity": "error",
+  "counts": {
+    "missing": 1
+  }
+}
+```
+
+Use `doctor --fail-on` when you need a CI gate; `health` always exits `0` when the summary is calculated successfully.
 
 `--var manpath` switches `print`, `doctor`, `health`, and `clean` to `MANPATH`. Command resolution and profile planning stay PATH-only. `clean --var manpath` preserves empty MANPATH components because common man implementations use them to include the system default manpath.
 

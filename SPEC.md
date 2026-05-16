@@ -589,6 +589,8 @@ Summarizes PATH or MANPATH health using the same diagnostic engine and policy in
 Start at `100`, subtract `15` for each `missing`, `not_directory`, `unreadable`, or `empty` diagnostic, subtract `5`
 for each `duplicate`, `unwanted`, or `suspicious_order` diagnostic, and clamp at `0`.
 
+The score is an advisory summary. Use `doctor --fail-on` for CI gating; `health` does not consume `fail_on` policy.
+
 Exit code:
 
 * `0` when health calculation succeeds, even if issues are found
@@ -942,6 +944,7 @@ Behaviour:
 * apply `[path]` to PATH commands, `doctor --command`, `health`, and `apply`
 * apply `[manpath]` to `doctor --var manpath`, `health --var manpath`, and `clean --var manpath`
 * treat config values as defaults; repeated CLI flags append after config values
+* apply config `drop` and `preset` to `health`, but keep `fail_on` doctor-only
 * `--config auto` searches the current working directory for `patholog.toml`, then `.patholog.toml`
 * operational commands ignore missing `--config auto`; `config check` and `config print` fail when auto finds nothing
 
