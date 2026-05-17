@@ -24,6 +24,18 @@ fn summarize_health_clamps_score_at_zero() {
 }
 
 #[test]
+fn summarize_health_clamps_large_penalties_without_overflow() {
+    let diagnostics = (0..5000)
+        .map(|index| diagnostic(IssueKind::Missing, index + 1, "/missing"))
+        .collect();
+
+    let report = summarize_health(doctor_report(Vec::new(), diagnostics));
+
+    assert_eq!(report.score, 0);
+    assert_eq!(report.issue_count, 5000);
+}
+
+#[test]
 fn summarize_health_maps_warning_and_error_severity() {
     let warning = summarize_health(doctor_report(
         Vec::new(),
