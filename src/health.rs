@@ -12,12 +12,10 @@ pub(crate) fn summarize_health(report: DoctorReport) -> HealthReport {
         .map(|diagnostic| severity_for(diagnostic.kind))
         .max()
         .unwrap_or(HealthSeverity::None);
-    let penalty = report
-        .diagnostics
-        .iter()
-        .map(|diagnostic| u16::from(penalty_for(diagnostic.kind)))
-        .sum::<u16>();
-    let score = 100u16.saturating_sub(penalty) as u8;
+    let penalty = report.diagnostics.iter().fold(0u8, |penalty, diagnostic| {
+        penalty.saturating_add(penalty_for(diagnostic.kind))
+    });
+    let score = 100u8.saturating_sub(penalty);
     let healthy = score == 100 && issue_count == 0;
 
     HealthReport {
