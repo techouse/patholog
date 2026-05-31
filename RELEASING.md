@@ -24,7 +24,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.9.4"
+   version="v0.9.5"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -49,6 +49,8 @@ unless that is explicitly part of the release scope.
 Before cutting a v1 release candidate, run:
 
 ```sh
+make package-metadata-check
+make install-smoke
 make v1-contract-check
 ```
 

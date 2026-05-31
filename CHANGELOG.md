@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.5 - 2026-05-31
+
+- Added packaged install smoke testing for private public-release dry runs.
+- Added package metadata and package policy checks for v1 readiness.
+- Extended `make v1-contract-check` with metadata and install-smoke verification.
+
 ## 0.9.4 - 2026-05-31
 
 - Added `make v1-contract-check` for pre-v1 command, JSON, docs, and package audits.
