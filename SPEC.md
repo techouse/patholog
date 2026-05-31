@@ -232,6 +232,25 @@ v0.9 still defers:
 
 ---
 
+## 1.10 v1.0.0 Release Candidate Audit (v0.9.4)
+
+v0.9.4 is a pre-v1 audit patch. It should not add runtime behavior or expand the CLI; it should prove that the
+current public surface is documented and covered by contract tests.
+
+Surfaces intended to be stable for v1:
+
+* command names and documented flags
+* exit codes `0`, `1`, `2`, and `3`
+* JSON field names and existing diagnostic/candidate/config shapes
+* config schema version `1`
+* the boundary that only `apply --yes` mutates files
+
+Human output is intended for interactive use and may evolve more freely than JSON. v1 still excludes `watch`,
+package-manager hints, user-global config discovery, automatic reordering, and mutation outside the managed apply
+block.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
@@ -1281,6 +1300,7 @@ Minimum coverage:
 16. `doctor --command` reports shadowed candidates
 17. `scan` reports PATH mutations in shell startup profiles
 18. `health` reports deterministic score, counts, and severity
+19. public command, JSON field, exit-code, and package contracts stay covered before v1
 
 ---
 

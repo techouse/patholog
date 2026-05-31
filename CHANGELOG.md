@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 0.9.4 - 2026-05-31
+
+- Added `make v1-contract-check` for pre-v1 command, JSON, docs, and package audits.
+- Strengthened CLI contract tests for command listing, JSON field shapes, and exit codes.
+- Documented the v1 stability contract and public-release readiness checklist.
+
 ## 0.9.3 - 2026-05-16
 
 - Added `make version-check` and `make release-check` for public-v1 readiness audits.

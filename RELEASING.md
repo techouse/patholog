@@ -24,7 +24,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.9.3"
+   version="v0.9.4"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -43,6 +43,18 @@ unless that is explicitly part of the release scope.
    ```
 
 7. Confirm GitHub Actions pass on the pushed commit.
+
+## v1 Readiness Checklist
+
+Before cutting a v1 release candidate, run:
+
+```sh
+make v1-contract-check
+```
+
+Confirm the package contents policy, `SECURITY.md` status, third-party license notice policy, README install claims,
+repository visibility, and crates.io publish decision are all intentional. Do not add public install instructions or
+publish to crates.io until those decisions are complete.
 
 ## Public Release Notes
 

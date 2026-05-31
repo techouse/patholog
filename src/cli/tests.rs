@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::model::{ExitCode, IssueKind};
+use serde_json::Value;
 
 use super::fail_on::parse_fail_on;
 use super::{CommandContext, run};
@@ -258,14 +259,20 @@ fn completions_outputs_scripts_for_supported_shells() {
         let result = run(["completions", shell], context("", None));
 
         assert_eq!(result.exit_code, ExitCode::Success);
-        assert!(result.stdout.contains("clean"));
-        assert!(result.stdout.contains("config"));
-        assert!(result.stdout.contains("completions"));
-        assert!(result.stdout.contains("health"));
-        assert!(result.stdout.contains("why-not"));
+        assert_completion_public_commands(&result.stdout);
         assert!(result.stdout.contains("yes"));
         assert!(result.stdout.contains("no-backup"));
     }
+}
+
+#[test]
+fn help_lists_public_command_contract() {
+    let result = run(["--help"], context("", None));
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert_help_public_commands(&result.stdout);
+    assert!(result.stdout.contains("Usage: patholog <COMMAND>"));
+    assert_eq!(result.stderr, "");
 }
 
 #[test]
@@ -1588,7 +1595,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 0.9.3\n");
+    assert_eq!(result.stdout, "patholog 0.9.4\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -1608,6 +1615,24 @@ fn usage_error_maps_to_general_error() {
     assert_eq!(result.exit_code, ExitCode::GeneralError);
     assert_eq!(result.stdout, "");
     assert!(result.stderr.contains("bad"));
+}
+
+#[test]
+fn exit_codes_preserve_public_contract() {
+    let success = run(["health", "--platform", "posix"], context("", None));
+    assert_eq!(success.exit_code, ExitCode::Success);
+
+    let general_error = run(["clean"], context("", None));
+    assert_eq!(general_error.exit_code, ExitCode::GeneralError);
+
+    let diagnostics_found = run(
+        ["doctor", "--platform", "posix", "--fail-on", "missing"],
+        context("missing-entry", None),
+    );
+    assert_eq!(diagnostics_found.exit_code, ExitCode::DiagnosticsFound);
+
+    let command_not_found = run(["why", "missing-tool"], context("", None));
+    assert_eq!(command_not_found.exit_code, ExitCode::CommandNotFound);
 }
 
 #[test]
@@ -1733,6 +1758,206 @@ fn config_print_outputs_normalized_json() {
         result
             .stdout
             .contains("\"fail_on\": [\n      \"duplicate\"\n    ]")
+    );
+}
+
+#[test]
+fn json_outputs_preserve_public_top_level_contracts() {
+    let (directory, root) = relative_tempdir();
+    let bin = root.join("bin");
+    make_executable(&bin.join("tool"));
+    let path_value = bin.display().to_string();
+
+    let print = run(
+        ["print", "--platform", "posix", "--json"],
+        context(&path_value, None),
+    );
+    assert_eq!(print.exit_code, ExitCode::Success);
+    let print_json = parse_json(&print.stdout);
+    let entries = print_json.as_array().expect("print json array");
+    assert_object_keys(
+        "print entry",
+        entries.first().expect("print entry"),
+        &[
+            "comparison_key",
+            "display",
+            "exists",
+            "index",
+            "is_dir",
+            "is_empty",
+            "kind",
+            "raw",
+        ],
+    );
+
+    let doctor = run(
+        ["doctor", "--platform", "posix", "--json"],
+        context(&root.join("missing").display().to_string(), None),
+    );
+    assert_eq!(doctor.exit_code, ExitCode::Success);
+    assert_json_object_keys(
+        "doctor",
+        &doctor.stdout,
+        &["diagnostics", "entries", "variable"],
+    );
+
+    let health = run(
+        ["health", "--platform", "posix", "--json"],
+        context(&root.join("missing").display().to_string(), None),
+    );
+    assert_eq!(health.exit_code, ExitCode::Success);
+    assert_json_object_keys(
+        "health",
+        &health.stdout,
+        &[
+            "counts",
+            "diagnostics",
+            "entry_count",
+            "healthy",
+            "issue_count",
+            "score",
+            "variable",
+            "worst_severity",
+        ],
+    );
+
+    for (label, argv) in [
+        ("why", ["why", "tool", "--platform", "posix", "--json"]),
+        (
+            "conflicts",
+            ["conflicts", "tool", "--platform", "posix", "--json"],
+        ),
+    ] {
+        let result = run(argv, context(&path_value, None));
+        assert_eq!(result.exit_code, ExitCode::Success);
+        assert_json_object_keys(
+            label,
+            &result.stdout,
+            &[
+                "candidates",
+                "command",
+                "found",
+                "related_hints",
+                "searched_directories",
+                "winner",
+            ],
+        );
+    }
+
+    let why_not = run(
+        ["why-not", "missing-tool", "--platform", "posix", "--json"],
+        context(&path_value, None),
+    );
+    assert_eq!(why_not.exit_code, ExitCode::CommandNotFound);
+    assert_json_object_keys(
+        "why-not",
+        &why_not.stdout,
+        &[
+            "advice",
+            "candidates",
+            "command",
+            "found",
+            "path_diagnostics",
+            "related_hints",
+            "searched_directories",
+            "winner",
+        ],
+    );
+
+    let home = directory.path().join("home");
+    let scan = run(
+        [
+            "scan",
+            "--platform",
+            "posix",
+            "--json",
+            "--home",
+            home.to_str().expect("utf-8 home"),
+        ],
+        context("", None),
+    );
+    assert_eq!(scan.exit_code, ExitCode::Success);
+    assert_json_object_keys("scan", &scan.stdout, &["home", "profiles"]);
+
+    let dry_profile = directory.path().join("dry.profile");
+    let apply_dry_run = run(
+        [
+            "apply",
+            "--dry-run",
+            "--shell",
+            "bash",
+            "--profile",
+            dry_profile.to_str().expect("utf-8 profile"),
+            "--json",
+        ],
+        context(&path_value, None),
+    );
+    assert_eq!(apply_dry_run.exit_code, ExitCode::Success);
+    assert_json_object_keys(
+        "apply dry-run",
+        &apply_dry_run.stdout,
+        &[
+            "action",
+            "cleaned_path",
+            "existing_block",
+            "planned_block",
+            "profile_path",
+            "shell",
+            "would_write",
+        ],
+    );
+
+    let yes_profile = directory.path().join("yes.profile");
+    let apply_yes = run(
+        [
+            "apply",
+            "--yes",
+            "--no-backup",
+            "--shell",
+            "bash",
+            "--profile",
+            yes_profile.to_str().expect("utf-8 profile"),
+            "--json",
+        ],
+        context(&path_value, None),
+    );
+    assert_eq!(apply_yes.exit_code, ExitCode::Success);
+    assert_json_object_keys(
+        "apply yes",
+        &apply_yes.stdout,
+        &[
+            "action",
+            "backup_created",
+            "backup_path",
+            "cleaned_path",
+            "existing_block",
+            "planned_block",
+            "profile_path",
+            "shell",
+            "would_write",
+            "wrote",
+        ],
+    );
+
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\"]\n",
+    );
+    let config_print = run(
+        [
+            "config",
+            "print",
+            "--json",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+    assert_eq!(config_print.exit_code, ExitCode::Success);
+    assert_json_object_keys(
+        "config print",
+        &config_print.stdout,
+        &["config_path", "manpath", "path", "version"],
     );
 }
 
@@ -1897,6 +2122,153 @@ fn backup_paths_for(profile: &Path) -> Vec<std::path::PathBuf> {
 
 fn parse_json(stdout: &str) -> serde_json::Value {
     serde_json::from_str(stdout).expect("parse json")
+}
+
+fn assert_json_object_keys(label: &str, stdout: &str, expected: &[&str]) {
+    let json = parse_json(stdout);
+    assert_object_keys(label, &json, expected);
+}
+
+fn assert_object_keys(label: &str, value: &Value, expected: &[&str]) {
+    let object = value
+        .as_object()
+        .unwrap_or_else(|| panic!("{label} object"));
+    let keys = object.keys().map(String::as_str).collect::<Vec<_>>();
+    assert_eq!(keys, expected, "{label} top-level keys");
+}
+
+fn assert_help_public_commands(output: &str) {
+    assert_eq!(help_commands(output), public_commands());
+}
+
+fn assert_completion_public_commands(output: &str) {
+    assert_eq!(completion_commands(output), public_commands());
+}
+
+fn help_commands(output: &str) -> Vec<&str> {
+    let mut commands = Vec::new();
+    let mut in_commands = false;
+    for line in output.lines() {
+        if line == "Commands:" {
+            in_commands = true;
+            continue;
+        }
+        if in_commands && line == "Options:" {
+            break;
+        }
+        if in_commands && !line.trim().is_empty() {
+            commands.push(line.split_whitespace().next().expect("command token"));
+        }
+    }
+    commands
+}
+
+fn completion_commands(output: &str) -> Vec<&str> {
+    for commands in [
+        bash_completion_commands(output),
+        fish_completion_commands(output),
+        pwsh_completion_commands(output),
+        zsh_completion_commands(output),
+    ] {
+        if !commands.is_empty() {
+            return commands;
+        }
+    }
+    panic!("completion top-level commands");
+}
+
+fn bash_completion_commands(output: &str) -> Vec<&str> {
+    output
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("opts=\""))
+        .filter_map(|line| line.strip_suffix('"'))
+        .map(|options| {
+            options
+                .split_whitespace()
+                .filter(|option| !option.starts_with('-'))
+                .collect::<Vec<_>>()
+        })
+        .max_by_key(Vec::len)
+        .unwrap_or_default()
+}
+
+fn fish_completion_commands(output: &str) -> Vec<&str> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            line.strip_prefix("complete -c patholog -n \"__fish_patholog_needs_command\" -f -a \"")
+                .and_then(|line| line.strip_suffix('"'))
+        })
+        .collect()
+}
+
+fn pwsh_completion_commands(output: &str) -> Vec<&str> {
+    let mut commands = Vec::new();
+    let mut in_top_level_block = false;
+    for line in output.lines().map(str::trim) {
+        if line == "'patholog' {" {
+            in_top_level_block = true;
+            continue;
+        }
+        if in_top_level_block && line == "break" {
+            break;
+        }
+        if !in_top_level_block {
+            continue;
+        }
+        let Some(command) = line.strip_prefix("[CompletionResult]::new('") else {
+            continue;
+        };
+        let Some((command, _rest)) = command.split_once('\'') else {
+            continue;
+        };
+        if !command.starts_with('-') {
+            commands.push(command);
+        }
+    }
+    commands
+}
+
+fn zsh_completion_commands(output: &str) -> Vec<&str> {
+    let mut commands = Vec::new();
+    let mut in_command_function = false;
+    for line in output.lines().map(str::trim) {
+        if line == "_patholog_commands() {" {
+            in_command_function = true;
+            continue;
+        }
+        if in_command_function && line == ")" {
+            break;
+        }
+        if !in_command_function {
+            continue;
+        }
+        let Some(command) = line.strip_prefix('\'') else {
+            continue;
+        };
+        let Some((command, _rest)) = command.split_once(':') else {
+            continue;
+        };
+        commands.push(command);
+    }
+    commands
+}
+
+fn public_commands() -> Vec<&'static str> {
+    vec![
+        "print",
+        "doctor",
+        "health",
+        "why",
+        "why-not",
+        "conflicts",
+        "clean",
+        "apply",
+        "scan",
+        "config",
+        "completions",
+    ]
 }
 
 fn write_config(directory: &Path, content: &str) -> std::path::PathBuf {
