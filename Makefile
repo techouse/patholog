@@ -11,7 +11,7 @@ FUZZ_SMOKE_SECONDS ?= 30
 .PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
 	test-doc coverage coverage-html msrv package-list package-check package-check-offline docs \
 	docs-missing third-party-licenses third-party-licenses-check \
-	publish-dry-run version-check release-check pre-release ci fuzz-build fuzz-smoke fuzz-soak
+	publish-dry-run version-check release-check v1-contract-check pre-release ci fuzz-build fuzz-smoke fuzz-soak
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_.-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
@@ -87,6 +87,15 @@ release-check: ## Run public-v1 readiness audit checks
 	$(MAKE) version-check
 	$(MAKE) docs
 	$(MAKE) docs-missing
+	$(MAKE) package-list
+	$(MAKE) package-check-offline
+
+v1-contract-check: ## Run v1 CLI, JSON, docs, and package contract checks
+	$(MAKE) version-check
+	$(MAKE) docs
+	$(MAKE) docs-missing
+	$(MAKE) test
+	$(MAKE) test-doc
 	$(MAKE) package-list
 	$(MAKE) package-check-offline
 

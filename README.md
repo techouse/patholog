@@ -6,6 +6,11 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
+## Release Status
+
+`patholog` is still pre-v1 and privately released. The CLI is the primary product surface; public install and crates.io
+publishing instructions should wait until the v1 release pass is complete.
+
 ## Quick Examples
 
 ```sh
@@ -194,9 +199,11 @@ All commands are read-only except `apply --yes`, which writes only the patholog-
 
 ```sh
 make ci
+make v1-contract-check
 make pre-release
 ```
 
-Use `make ci` for normal local checks and `make pre-release` as the full gate before tagging a release.
+Use `make ci` for normal local checks, `make v1-contract-check` for the pre-v1 contract audit, and
+`make pre-release` as the full gate before tagging a release.
 
 Golden parity fixtures are vendored in `tests/fixtures/golden`.
