@@ -251,6 +251,20 @@ block.
 
 ---
 
+## 1.11 Public Release Dry Run (v0.9.5)
+
+v0.9.5 is the final private pre-RC packaging dry run. It should not add runtime behavior or expand the CLI; it should
+verify that the packaged crate can be installed into an isolated temporary root and run as a normal binary.
+
+v0.9.5 checks:
+
+* package metadata and package exclusion policy are explicit
+* `SECURITY.md` and generated third-party license notices remain repository-level for v1.0.0
+* README keeps pre-v1/private-release positioning and no public crates.io install instructions
+* packaged install smoke verifies `patholog --version` and `patholog health --json`
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals

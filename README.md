@@ -199,11 +199,13 @@ All commands are read-only except `apply --yes`, which writes only the patholog-
 
 ```sh
 make ci
+make install-smoke
 make v1-contract-check
 make pre-release
 ```
 
-Use `make ci` for normal local checks, `make v1-contract-check` for the pre-v1 contract audit, and
-`make pre-release` as the full gate before tagging a release.
+Use `make ci` for normal local checks, `make install-smoke` to test the packaged crate in a temporary install root,
+`make v1-contract-check` for the pre-v1 contract audit, and `make pre-release` as the full gate before tagging a
+release.
 
 Golden parity fixtures are vendored in `tests/fixtures/golden`.

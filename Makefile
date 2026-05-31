@@ -9,8 +9,8 @@ FUZZ_TARGETS ?= path_clean path_parse_doctor cli_read_only
 FUZZ_SMOKE_SECONDS ?= 30
 
 .PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
-	test-doc coverage coverage-html msrv package-list package-check package-check-offline docs \
-	docs-missing third-party-licenses third-party-licenses-check \
+	test-doc coverage coverage-html msrv package-list package-check package-check-offline \
+	package-metadata-check install-smoke docs docs-missing third-party-licenses third-party-licenses-check \
 	publish-dry-run version-check release-check v1-contract-check pre-release ci fuzz-build fuzz-smoke fuzz-soak
 
 help: ## Show available targets
@@ -72,6 +72,38 @@ package-check-offline: ## Verify crate package creation using only local cache
 	! grep -E '^(\.github/|\.history/|\.gitignore$$|AGENTS\.md$$|fuzz/|scripts/|src/.*/tests\.rs$$|src/.*/tests/|tests/)' $(PACKAGE_LIST)
 	$(CARGO) package --locked --allow-dirty --offline
 
+package-metadata-check: ## Check public package metadata and v1 package policy
+	@grep -q '^description = "Diagnose, explain, clean, and safely repair PATH behavior\."' Cargo.toml
+	@grep -q '^license = "BSD-3-Clause"' Cargo.toml
+	@grep -q '^readme = "README.md"' Cargo.toml
+	@grep -q '^documentation = "https://docs.rs/patholog"' Cargo.toml
+	@for keyword in cli file-system path utilities; do grep -q "\"$$keyword\"" Cargo.toml || exit 1; done
+	@grep -q '"SECURITY.md"' Cargo.toml
+	@grep -q '"THIRD-PARTY-LICENSES.md"' Cargo.toml
+	@grep -q 'pre-v1 and privately released' README.md
+	@! grep -Ei 'cargo install patholog' README.md
+	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
+	! grep -E '^(SECURITY\.md|THIRD-PARTY-LICENSES\.md)$$' $(PACKAGE_LIST)
+
+install-smoke: ## Install packaged crate into a temporary root and smoke-test it
+	@set -e; \
+	version="$$(sed -n 's/^version = "\([^"]*\)"$$/\1/p' Cargo.toml | head -n 1)"; \
+	if [ -z "$$version" ]; then echo "Could not read version from Cargo.toml" >&2; exit 1; fi; \
+	$(CARGO) package --locked --allow-dirty --offline; \
+	package_dir="target/package/patholog-$$version"; \
+	if [ ! -d "$$package_dir" ]; then echo "missing package directory $$package_dir" >&2; exit 1; fi; \
+	tmp="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tmp"' EXIT; \
+	mkdir -p "$$tmp/cargo-home"; \
+	source_cargo_home="$${CARGO_HOME:-$$HOME/.cargo}"; \
+	if [ -d "$$source_cargo_home/registry" ]; then cp -R "$$source_cargo_home/registry" "$$tmp/cargo-home/registry"; fi; \
+	if [ -d "$$source_cargo_home/git" ]; then cp -R "$$source_cargo_home/git" "$$tmp/cargo-home/git"; fi; \
+	CARGO_HOME="$$tmp/cargo-home" CARGO_TARGET_DIR="$$tmp/target" $(CARGO) install --locked --offline --path "$$package_dir" --root "$$tmp/root"; \
+	bin="$$tmp/root/bin/patholog"; \
+	if [ ! -x "$$bin" ] && [ -x "$$bin.exe" ]; then bin="$$bin.exe"; fi; \
+	"$$bin" --version | grep -q "patholog $$version"; \
+	"$$bin" health --json | grep -q '"score"'
+
 version-check: ## Check release version references agree
 	@version="$$(sed -n 's/^version = "\([^"]*\)"$$/\1/p' Cargo.toml | head -n 1)"; \
 	if [ -z "$$version" ]; then echo "Could not read version from Cargo.toml" >&2; exit 1; fi; \
@@ -96,8 +128,10 @@ v1-contract-check: ## Run v1 CLI, JSON, docs, and package contract checks
 	$(MAKE) docs-missing
 	$(MAKE) test
 	$(MAKE) test-doc
+	$(MAKE) package-metadata-check
 	$(MAKE) package-list
 	$(MAKE) package-check-offline
+	$(MAKE) install-smoke
 
 docs: ## Build library docs with docs.rs warning settings
 	RUSTDOCFLAGS='$(RUSTDOCFLAGS_DOCS)' $(CARGO) doc --locked --no-deps --lib
