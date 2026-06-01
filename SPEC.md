@@ -283,6 +283,17 @@ for an ambiguity found during RC validation.
 
 ---
 
+## 1.13 Coverage Hardening Release Candidate (v1.0.0-rc.2)
+
+`v1.0.0-rc.2` is a private coverage-hardening release candidate. It should add tests and release metadata only; it
+must not add runtime behavior, expand the CLI, change JSON contracts, change config schema version `1`, or broaden
+mutation beyond `apply --yes`.
+
+The goal is to raise meaningful coverage where tests remain deterministic. Coverage gaps caused by impractical
+platform, permission, clock, or low-level I/O failure paths may remain uncovered rather than forcing brittle tests.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals

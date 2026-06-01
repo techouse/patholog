@@ -24,7 +24,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v1.0.0-rc.1"
+   version="v1.0.0-rc.2"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -60,7 +60,7 @@ publish to crates.io until those decisions are complete.
 
 ## Private v1 RC Checklist
 
-Before tagging `v1.0.0-rc.1`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
+Before tagging `v1.0.0-rc.2`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
 
 ```sh
 make v1-contract-check

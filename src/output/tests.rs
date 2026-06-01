@@ -1,18 +1,21 @@
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
+use crate::config::{ConfigPolicy, LoadedConfig, PathologConfig};
 use crate::model::{
     ApplyAction, ApplyOutcome, ApplyPlan, Diagnostic, DoctorReport, HealthReport, HealthSeverity,
-    IssueKind, PathEntry, PathMutation, PathVariable, RelatedExecutableHint, ResolutionCandidate,
-    ResolutionReport, ShellKind, ShellProfile, ShellProfileScanReport, WhyNotReport,
+    IssueKind, PathEntry, PathMutation, PathVariable, PresetKind, RelatedExecutableHint,
+    ResolutionCandidate, ResolutionReport, ShellKind, ShellProfile, ShellProfileScanReport,
+    WhyNotReport,
 };
 
 use super::human::{
-    format_apply_outcome, format_apply_plan, format_conflicts, format_doctor, format_health,
-    format_print, format_shell_profile_scan, format_why, format_why_not,
+    format_apply_outcome, format_apply_plan, format_config_print, format_conflicts, format_doctor,
+    format_health, format_print, format_shell_profile_scan, format_why, format_why_not,
 };
 use super::json::{
-    apply_outcome_to_json, apply_plan_to_json, doctor_to_json, dumps_json, health_to_json,
-    resolution_to_json, shell_profile_scan_to_json, why_not_to_json,
+    apply_outcome_to_json, apply_plan_to_json, config_to_json, doctor_to_json, dumps_json,
+    health_to_json, resolution_to_json, shell_profile_scan_to_json, why_not_to_json,
 };
 
 #[test]
@@ -175,6 +178,59 @@ fn format_print_renders_empty_entries() {
 }
 
 #[test]
+fn format_config_print_renders_populated_and_empty_policy_lists() {
+    let config = LoadedConfig {
+        path: PathBuf::from("patholog.toml"),
+        config: PathologConfig {
+            version: 1,
+            path: ConfigPolicy {
+                drop_entries: vec!["/drop".to_owned(), "/other".to_owned()],
+                presets: vec![PresetKind::Fink],
+                fail_on: vec![IssueKind::Missing, IssueKind::Duplicate],
+            },
+            manpath: ConfigPolicy::default(),
+        },
+    };
+
+    assert_eq!(
+        format_config_print(&config),
+        "Config: patholog.toml\nVersion: 1\n\nPATH:\n  drop: /drop, /other\n  preset: fink\n  fail_on: missing, duplicate\n\nMANPATH:\n  drop: none\n  preset: none\n  fail_on: none\n"
+    );
+}
+
+#[test]
+fn config_json_renders_normalized_policy_lists() {
+    let config = LoadedConfig {
+        path: PathBuf::from("patholog.toml"),
+        config: PathologConfig {
+            version: 1,
+            path: ConfigPolicy {
+                drop_entries: vec!["/drop".to_owned()],
+                presets: vec![PresetKind::Cargo],
+                fail_on: vec![IssueKind::Duplicate],
+            },
+            manpath: ConfigPolicy {
+                drop_entries: vec!["/man/drop".to_owned()],
+                presets: vec![PresetKind::Fink],
+                fail_on: vec![IssueKind::Missing],
+            },
+        },
+    };
+
+    let output = dumps_json(&config_to_json(&config)).expect("render config json");
+    let json = serde_json::from_str::<serde_json::Value>(&output).expect("parse config json");
+
+    assert_eq!(json["config_path"].as_str(), Some("patholog.toml"));
+    assert_eq!(json["version"].as_u64(), Some(1));
+    assert_eq!(json["path"]["drop"][0].as_str(), Some("/drop"));
+    assert_eq!(json["path"]["preset"][0].as_str(), Some("cargo"));
+    assert_eq!(json["path"]["fail_on"][0].as_str(), Some("duplicate"));
+    assert_eq!(json["manpath"]["drop"][0].as_str(), Some("/man/drop"));
+    assert_eq!(json["manpath"]["preset"][0].as_str(), Some("fink"));
+    assert_eq!(json["manpath"]["fail_on"][0].as_str(), Some("missing"));
+}
+
+#[test]
 fn format_why_renders_single_match_without_other_matches() {
     let report = ResolutionReport {
         command: "tool".to_owned(),
@@ -262,6 +318,73 @@ fn format_why_not_renders_missing_context() {
     assert_eq!(
         format_why_not(&report),
         "Command: python\n\nNot found in PATH.\n\nSearched directories:\n  1  /missing\n  2  /bin\n\nPATH diagnostics:\n  missing  1  /missing\n\nRelated executables, not PATH matches:\n  python3\n    /bin/python3\n\nAdvice:\n  Check that the command is installed and that its executable directory is present in PATH.\n"
+    );
+}
+
+#[test]
+fn format_why_not_renders_all_path_diagnostic_labels() {
+    let report = WhyNotReport {
+        command: "tool".to_owned(),
+        candidates: Vec::new(),
+        searched_directories: vec!["".to_owned(), "/file".to_owned(), "/private".to_owned()],
+        related_hints: Vec::new(),
+        path_diagnostics: vec![
+            Diagnostic {
+                kind: IssueKind::Empty,
+                message: "entry 1 is empty".to_owned(),
+                entry_index: Some(1),
+                entry_value: Some(String::new()),
+                related_indexes: Vec::new(),
+            },
+            Diagnostic {
+                kind: IssueKind::NotDirectory,
+                message: "/file is not a directory".to_owned(),
+                entry_index: Some(2),
+                entry_value: Some("/file".to_owned()),
+                related_indexes: Vec::new(),
+            },
+            Diagnostic {
+                kind: IssueKind::Unreadable,
+                message: "/private is not readable".to_owned(),
+                entry_index: Some(3),
+                entry_value: Some("/private".to_owned()),
+                related_indexes: Vec::new(),
+            },
+            Diagnostic {
+                kind: IssueKind::Duplicate,
+                message: "/dup appears multiple times".to_owned(),
+                entry_index: Some(4),
+                entry_value: Some("/dup".to_owned()),
+                related_indexes: vec![4, 5],
+            },
+            Diagnostic {
+                kind: IssueKind::SuspiciousOrder,
+                message: "/bin appears before /tools".to_owned(),
+                entry_index: Some(5),
+                entry_value: Some("/bin".to_owned()),
+                related_indexes: vec![5, 6],
+            },
+            Diagnostic {
+                kind: IssueKind::ShadowedCommand,
+                message: "tool at /late/tool is shadowed".to_owned(),
+                entry_index: Some(6),
+                entry_value: Some("/late/tool".to_owned()),
+                related_indexes: vec![1, 6],
+            },
+            Diagnostic {
+                kind: IssueKind::Unwanted,
+                message: "/sw/bin is marked for removal".to_owned(),
+                entry_index: Some(7),
+                entry_value: Some("/sw/bin".to_owned()),
+                related_indexes: vec![7],
+            },
+        ],
+        advice: Vec::new(),
+    };
+
+    assert_eq!(
+        format_why_not(&report),
+        "Command: tool\n\nNot found in PATH.\n\nSearched directories:\n  1  \n  2  /file\n  3  /private\n\nPATH diagnostics:\n  empty  1  <empty>\n  not_directory  2  /file\n  unreadable  3  /private\n  duplicate  /dup appears multiple times\n  suspicious_order  /bin appears before /tools\n  shadowed_command  tool at /late/tool is shadowed\n  unwanted  /sw/bin is marked for removal\n"
     );
 }
 
@@ -436,6 +559,40 @@ fn format_shell_profile_scan_renders_path_mutations() {
     assert_eq!(
         format_shell_profile_scan(&report),
         "Shell profile scan: /home/me\n\nPATH changes:\n  /home/me/.zshrc (zsh)\n    line 3  path_assignment  export PATH=\"$HOME/bin:$PATH\"\n"
+    );
+}
+
+#[test]
+fn format_shell_profile_scan_renders_mutations_and_unreadable_profiles() {
+    let report = ShellProfileScanReport {
+        home: "/home/me".to_owned(),
+        profiles: vec![
+            ShellProfile {
+                shell: "zsh",
+                path: "/home/me/.zshrc".to_owned(),
+                exists: true,
+                is_file: true,
+                readable: true,
+                path_mutations: vec![PathMutation {
+                    line: 3,
+                    kind: "path_assignment",
+                    text: "export PATH=\"$HOME/bin:$PATH\"".to_owned(),
+                }],
+            },
+            ShellProfile {
+                shell: "bash",
+                path: "/home/me/.bashrc".to_owned(),
+                exists: true,
+                is_file: true,
+                readable: false,
+                path_mutations: Vec::new(),
+            },
+        ],
+    };
+
+    assert_eq!(
+        format_shell_profile_scan(&report),
+        "Shell profile scan: /home/me\n\nPATH changes:\n  /home/me/.zshrc (zsh)\n    line 3  path_assignment  export PATH=\"$HOME/bin:$PATH\"\n\nUnreadable profiles:\n  /home/me/.bashrc (bash)\n"
     );
 }
 

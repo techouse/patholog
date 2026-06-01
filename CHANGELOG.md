@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.0-rc.2 - 2026-06-01
+
+- Added coverage-focused tests for config, scan, why-not, profile scanning, apply helpers, and CLI routing branches.
+- Documented rc.2 as test-only coverage hardening with the v1 contract unchanged.
+- Kept crates.io publishing and public install instructions deferred until the final v1 release pass.
+
 ## 1.0.0-rc.1 - 2026-06-01
 
 - Cut the private v1 release candidate with the v1 command, JSON, exit-code, and config contract frozen.
