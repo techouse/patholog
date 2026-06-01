@@ -3,7 +3,7 @@
 `patholog` is currently released from the private repository. Do not publish to crates.io or make the repository public
 unless that is explicitly part of the release scope.
 
-## Private v0.x Release Checklist
+## Private Release Checklist
 
 1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, CLI version tests, binary wrapper version
    tests, and `CHANGELOG.md`.
@@ -24,7 +24,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v0.9.5"
+   version="v1.0.0-rc.1"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -57,6 +57,18 @@ make v1-contract-check
 Confirm the package contents policy, `SECURITY.md` status, third-party license notice policy, README install claims,
 repository visibility, and crates.io publish decision are all intentional. Do not add public install instructions or
 publish to crates.io until those decisions are complete.
+
+## Private v1 RC Checklist
+
+Before tagging `v1.0.0-rc.1`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
+
+```sh
+make v1-contract-check
+make pre-release
+```
+
+After tagging and pushing the RC commit, verify the tag points at the intended commit and confirm GitHub Actions pass.
+Do not publish the RC to crates.io unless publishing is explicitly added to the release scope.
 
 ## Public Release Notes
 

@@ -8,8 +8,8 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 ## Release Status
 
-`patholog` is still pre-v1 and privately released. The CLI is the primary product surface; public install and crates.io
-publishing instructions should wait until the v1 release pass is complete.
+`patholog` is a private v1 release candidate. The CLI is the primary product surface; public install and crates.io
+publishing instructions should wait until the final v1 release pass is complete.
 
 ## Quick Examples
 
@@ -205,7 +205,7 @@ make pre-release
 ```
 
 Use `make ci` for normal local checks, `make install-smoke` to test the packaged crate in a temporary install root,
-`make v1-contract-check` for the pre-v1 contract audit, and `make pre-release` as the full gate before tagging a
+`make v1-contract-check` for the v1 contract audit, and `make pre-release` as the full gate before tagging a
 release.
 
 Golden parity fixtures are vendored in `tests/fixtures/golden`.

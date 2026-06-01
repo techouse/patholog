@@ -265,6 +265,24 @@ v0.9.5 checks:
 
 ---
 
+## 1.12 Private v1 Release Candidate (v1.0.0-rc.1)
+
+`v1.0.0-rc.1` is the private v1 release candidate. It should not add runtime behavior or expand the CLI; it freezes the
+documented v1 contract for final validation before `v1.0.0`.
+
+RC contract boundaries:
+
+* stable: command names, documented flags, exit codes, JSON field names, config schema version `1`, and `apply --yes`
+  as the only mutating command
+* flexible: human output may evolve more freely than JSON
+* excluded: `watch`, new health flags, package-manager hints, user-global config discovery, automatic reordering, and
+  mutation outside the managed apply block
+
+Any post-RC change should be a release-blocking bug fix that preserves this contract, or a documentation clarification
+for an ambiguity found during RC validation.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals

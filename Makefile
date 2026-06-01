@@ -80,7 +80,7 @@ package-metadata-check: ## Check public package metadata and v1 package policy
 	@for keyword in cli file-system path utilities; do grep -q "\"$$keyword\"" Cargo.toml || exit 1; done
 	@grep -q '"SECURITY.md"' Cargo.toml
 	@grep -q '"THIRD-PARTY-LICENSES.md"' Cargo.toml
-	@grep -q 'pre-v1 and privately released' README.md
+	@grep -q 'private v1 release candidate' README.md
 	@! grep -Ei 'cargo install patholog' README.md
 	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
 	! grep -E '^(SECURITY\.md|THIRD-PARTY-LICENSES\.md)$$' $(PACKAGE_LIST)

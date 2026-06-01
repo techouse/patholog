@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.0-rc.1 - 2026-06-01
+
+- Cut the private v1 release candidate with the v1 command, JSON, exit-code, and config contract frozen.
+- Updated release documentation for the private v1 RC flow.
+- Kept crates.io publishing and public install instructions deferred until the final v1 release pass.
+
 ## 0.9.5 - 2026-05-31
 
 - Added packaged install smoke testing for private public-release dry runs.
