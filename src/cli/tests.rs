@@ -1595,7 +1595,7 @@ fn version_uses_injected_stdout() {
     let result = run(["--version"], context("", None));
 
     assert_eq!(result.exit_code, ExitCode::Success);
-    assert_eq!(result.stdout, "patholog 1.0.0-rc.1\n");
+    assert_eq!(result.stdout, "patholog 1.0.0-rc.2\n");
     assert_eq!(result.stderr, "");
 }
 
@@ -1759,6 +1759,37 @@ fn config_print_outputs_normalized_json() {
             .stdout
             .contains("\"fail_on\": [\n      \"duplicate\"\n    ]")
     );
+}
+
+#[test]
+fn config_print_outputs_normalized_human_policy() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(
+        directory.path(),
+        "version = 1\n[path]\ndrop = [\"/drop\", \"/drop\"]\npreset = [\"cargo\"]\nfail_on = [\"duplicate\"]\n",
+    );
+
+    let result = run(
+        [
+            "config",
+            "print",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::Success);
+    assert!(
+        result
+            .stdout
+            .contains(&format!("Config: {}", config.display()))
+    );
+    assert!(result.stdout.contains("Version: 1"));
+    assert!(result.stdout.contains("PATH:\n  drop: /drop"));
+    assert!(result.stdout.contains("  preset: cargo"));
+    assert!(result.stdout.contains("  fail_on: duplicate"));
+    assert!(result.stdout.contains("MANPATH:\n  drop: none"));
 }
 
 #[test]

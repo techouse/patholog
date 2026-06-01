@@ -6,7 +6,7 @@ use crate::policy::PathPolicy;
 use super::{
     ApplyPlanOptions, END_MARKER, START_MARKER, WriteMode, appended_profile_content,
     backup_path_candidate, create_profile_backup_for_seconds, existing_managed_block,
-    existing_managed_block_span, managed_block, plan_apply, plan_apply_operation,
+    existing_managed_block_span, managed_block, plan_apply, plan_apply_operation, profile_parent,
     replaced_profile_content, write_apply_plan, write_profile_atomically,
 };
 
@@ -315,6 +315,11 @@ fn backup_path_for_seconds_uses_base_name() {
 }
 
 #[test]
+fn profile_parent_defaults_to_current_directory_for_bare_file_names() {
+    assert_eq!(profile_parent(Path::new(".zshrc")), Path::new("."));
+}
+
+#[test]
 fn create_profile_backup_uses_create_new_suffix_without_overwriting() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".bashrc");
@@ -452,6 +457,27 @@ fn write_apply_plan_reports_parent_directory_creation_failures_generically() {
 
     assert!(error.contains("could not create profile parent directory"));
     assert!(!error.contains("not writable"));
+}
+
+#[cfg(unix)]
+#[test]
+fn write_profile_atomically_rejects_replace_target_that_became_symlink() {
+    use std::os::unix::fs::symlink;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let target = directory.path().join("real.profile");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&target, "before\n").expect("write target profile");
+    symlink(&target, &profile).expect("create profile symlink");
+
+    let error = write_profile_atomically(&profile, "after\n", None, WriteMode::ReplaceExisting)
+        .expect_err("write should fail");
+
+    assert!(error.contains("symlink"));
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("read target profile"),
+        "before\n"
+    );
 }
 
 #[cfg(target_os = "linux")]
