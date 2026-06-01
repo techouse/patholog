@@ -7,7 +7,8 @@ use super::{
     ApplyPlanOptions, END_MARKER, START_MARKER, WriteMode, appended_profile_content,
     backup_path_candidate, create_profile_backup_for_seconds, existing_managed_block,
     existing_managed_block_span, managed_block, plan_apply, plan_apply_operation, profile_parent,
-    replaced_profile_content, write_apply_plan, write_profile_atomically,
+    profile_permissions, read_profile_content, replaced_profile_content, write_apply_plan,
+    write_profile_atomically,
 };
 
 #[test]
@@ -119,6 +120,40 @@ fn plan_apply_profile_override_does_not_require_home() {
 }
 
 #[test]
+fn plan_apply_requires_home_for_posix_shell_defaults() {
+    let error = plan_apply(&ApplyPlanOptions {
+        path_value: "/a:/b",
+        platform_mode: PlatformMode::Posix,
+        pathext: None,
+        shell: ShellKind::Bash,
+        home_dir: None,
+        user_profile_dir: None,
+        profile: None,
+        policy: PathPolicy::default(),
+    })
+    .expect_err("missing home should fail");
+
+    assert!(error.contains("set HOME"));
+}
+
+#[test]
+fn plan_apply_requires_userprofile_for_windows_pwsh_default() {
+    let error = plan_apply(&ApplyPlanOptions {
+        path_value: r"C:\One;C:\Two",
+        platform_mode: PlatformMode::Windows,
+        pathext: None,
+        shell: ShellKind::Pwsh,
+        home_dir: None,
+        user_profile_dir: None,
+        profile: None,
+        policy: PathPolicy::default(),
+    })
+    .expect_err("missing user profile should fail");
+
+    assert!(error.contains("set USERPROFILE"));
+}
+
+#[test]
 fn plan_apply_appends_when_profile_has_no_managed_block() {
     let directory = tempfile::tempdir().expect("create tempdir");
     let profile = directory.path().join(".bashrc");
@@ -224,6 +259,14 @@ fn existing_managed_block_rejects_malformed_block() {
 }
 
 #[test]
+fn existing_managed_block_rejects_end_marker_before_start_marker() {
+    let content = format!("{END_MARKER}\nexport PATH='/old'\n{START_MARKER}\n");
+    let error = existing_managed_block(&content).expect_err("reversed markers should fail");
+
+    assert!(error.contains("malformed"));
+}
+
+#[test]
 fn existing_managed_block_rejects_indented_marker_lines() {
     let content = format!("{START_MARKER}\nexport PATH='/old'\n  {END_MARKER}");
     let error = existing_managed_block(&content).expect_err("indented marker should not match");
@@ -269,6 +312,17 @@ fn replaced_profile_content_preserves_crlf_line_endings() {
         replaced_profile_content(&content, &planned_block).expect("replace block"),
         "before\r\n# >>> patholog PATH >>>\r\nexport PATH='/new'\r\n# <<< patholog PATH <<<\r\nafter\r\n"
     );
+}
+
+#[test]
+fn replaced_profile_content_rejects_missing_managed_block() {
+    let error = replaced_profile_content(
+        "export PATH=\"$PATH\"\n",
+        &managed_block("export PATH='/new'"),
+    )
+    .expect_err("missing block should fail");
+
+    assert!(error.contains("changed before write"));
 }
 
 #[test]
@@ -341,6 +395,17 @@ fn create_profile_backup_uses_create_new_suffix_without_overwriting() {
         std::fs::read_to_string(&backup).expect("read new backup"),
         "before\n"
     );
+}
+
+#[test]
+fn create_profile_backup_reports_missing_source() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+
+    let error = create_profile_backup_for_seconds(&profile, 123)
+        .expect_err("missing profile backup should fail");
+
+    assert!(error.contains("apply backup failed"));
 }
 
 #[cfg(target_os = "linux")]
@@ -443,6 +508,65 @@ fn write_apply_plan_does_not_clobber_create_target_that_appears_after_planning()
         std::fs::read_to_string(&profile).expect("read profile"),
         "user-created\n"
     );
+}
+
+#[test]
+fn write_apply_plan_rejects_append_target_that_gained_managed_block_after_planning() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, "export PATH=\"$PATH\"\n").expect("write profile");
+    let planned = planned(
+        directory.path(),
+        Some(&profile),
+        PlatformMode::Posix,
+        ShellKind::Bash,
+    )
+    .expect("plan apply");
+    std::fs::write(&profile, managed_block("export PATH='/other'")).expect("change profile");
+
+    let error = write_apply_plan(planned, false).expect_err("write should fail");
+
+    assert!(error.contains("changed before write"));
+}
+
+#[test]
+fn write_apply_plan_rejects_replace_target_whose_block_changed_after_planning() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, managed_block("export PATH='/old'")).expect("write profile");
+    let planned = planned(
+        directory.path(),
+        Some(&profile),
+        PlatformMode::Posix,
+        ShellKind::Bash,
+    )
+    .expect("plan apply");
+    std::fs::write(&profile, managed_block("export PATH='/changed'")).expect("change profile");
+
+    let error = write_apply_plan(planned, false).expect_err("write should fail");
+
+    assert!(error.contains("changed before write"));
+}
+
+#[test]
+fn read_profile_content_reports_invalid_utf8() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+    std::fs::write(&profile, [0xff, 0xfe]).expect("write invalid utf-8");
+
+    let error = read_profile_content(&profile).expect_err("invalid utf-8 should fail");
+
+    assert!(error.contains("not readable"));
+}
+
+#[test]
+fn profile_permissions_reports_missing_profile() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let profile = directory.path().join(".bashrc");
+
+    let error = profile_permissions(&profile).expect_err("missing profile should fail");
+
+    assert!(error.contains("not readable"));
 }
 
 #[test]

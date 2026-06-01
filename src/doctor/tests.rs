@@ -1,9 +1,11 @@
-use crate::model::{IssueKind, PathVariable, PlatformMode, PresetKind};
+use crate::model::{Diagnostic, IssueKind, PathVariable, PlatformMode, PresetKind};
 use crate::policy::PathPolicy;
 
 use std::path::Path;
 
-use super::{diagnose_command_path_with_policy, diagnose_path, diagnose_path_with_policy};
+use super::{
+    diagnose_command_path_with_policy, diagnose_path, diagnose_path_with_policy, same_diagnostic,
+};
 
 #[test]
 fn diagnose_path_detects_core_diagnostics() {
@@ -216,6 +218,71 @@ fn repeated_ordering_presets_emit_one_diagnostic() {
             .count(),
         1
     );
+}
+
+#[test]
+fn ordering_presets_do_not_warn_when_tools_precede_system_dirs() {
+    for (preset, path) in [
+        (PresetKind::Homebrew, "/opt/homebrew/bin:/usr/bin"),
+        (PresetKind::Cargo, "/Users/me/.cargo/bin:/bin"),
+        (PresetKind::Pyenv, "/Users/me/.pyenv/shims:/usr/bin"),
+    ] {
+        let report = diagnose_path_with_policy(
+            path,
+            PlatformMode::Posix,
+            None,
+            PathVariable::Path,
+            &PathPolicy::new(&[], &[preset], PathVariable::Path),
+        );
+
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.kind != IssueKind::SuspiciousOrder),
+            "{preset:?} should not emit suspicious order for {path}"
+        );
+    }
+}
+
+#[test]
+fn fink_preset_does_not_emit_ordering_diagnostics() {
+    let report = diagnose_path_with_policy(
+        "/sw/bin",
+        PlatformMode::Posix,
+        None,
+        PathVariable::Path,
+        &PathPolicy::new(&[], &[PresetKind::Fink], PathVariable::Path),
+    );
+
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.kind != IssueKind::SuspiciousOrder)
+    );
+}
+
+#[test]
+fn same_diagnostic_compares_all_identity_fields() {
+    let diagnostic = Diagnostic {
+        kind: IssueKind::SuspiciousOrder,
+        message: "/bin appears before /tools".to_owned(),
+        entry_index: Some(1),
+        entry_value: Some("/bin".to_owned()),
+        related_indexes: vec![1, 2],
+    };
+    let mut changed_entry_index = diagnostic.clone();
+    changed_entry_index.entry_index = Some(2);
+    let mut changed_entry_value = diagnostic.clone();
+    changed_entry_value.entry_value = Some("/usr/bin".to_owned());
+    let mut changed_related_indexes = diagnostic.clone();
+    changed_related_indexes.related_indexes = vec![2, 1];
+
+    assert!(same_diagnostic(&diagnostic, &diagnostic));
+    assert!(!same_diagnostic(&diagnostic, &changed_entry_index));
+    assert!(!same_diagnostic(&diagnostic, &changed_entry_value));
+    assert!(!same_diagnostic(&diagnostic, &changed_related_indexes));
 }
 
 #[test]

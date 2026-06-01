@@ -626,14 +626,23 @@ fn shell_profile_scan_json_includes_profile_state() {
             exists: true,
             is_file: true,
             readable: false,
-            path_mutations: Vec::new(),
+            path_mutations: vec![PathMutation {
+                line: 8,
+                kind: "path_assignment",
+                text: "PATH=/opt/bin:$PATH".to_owned(),
+            }],
         }],
     };
 
     let output = dumps_json(&shell_profile_scan_to_json(&report)).expect("render shell scan json");
+    let json = serde_json::from_str::<serde_json::Value>(&output).expect("parse shell scan json");
 
     assert!(output.contains("\"path\": \"/home/me/.bashrc\""));
     assert!(output.contains("\"readable\": false"));
+    let mutation = &json["profiles"][0]["path_mutations"][0];
+    assert_eq!(mutation["line"].as_u64(), Some(8));
+    assert_eq!(mutation["kind"].as_str(), Some("path_assignment"));
+    assert_eq!(mutation["text"].as_str(), Some("PATH=/opt/bin:$PATH"));
 }
 
 #[test]

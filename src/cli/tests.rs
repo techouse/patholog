@@ -514,6 +514,26 @@ fn health_config_auto_applies_local_policy() {
 }
 
 #[test]
+fn health_malformed_config_returns_runtime_error() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = write_config(directory.path(), "version = ");
+
+    let result = run(
+        [
+            "health",
+            "--platform",
+            "posix",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config file is invalid"));
+}
+
+#[test]
 fn why_not_found_command_reports_available() {
     let (directory, root) = relative_tempdir();
     let bin = root.join("bin");
@@ -1790,6 +1810,25 @@ fn config_print_outputs_normalized_human_policy() {
     assert!(result.stdout.contains("  preset: cargo"));
     assert!(result.stdout.contains("  fail_on: duplicate"));
     assert!(result.stdout.contains("MANPATH:\n  drop: none"));
+}
+
+#[test]
+fn config_print_missing_config_returns_runtime_error() {
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let config = directory.path().join("missing.toml");
+
+    let result = run(
+        [
+            "config",
+            "print",
+            "--config",
+            config.to_str().expect("utf-8 config"),
+        ],
+        context("", None),
+    );
+
+    assert_eq!(result.exit_code, ExitCode::GeneralError);
+    assert!(result.stderr.contains("config file is not readable"));
 }
 
 #[test]
