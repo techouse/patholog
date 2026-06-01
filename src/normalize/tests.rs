@@ -35,6 +35,7 @@ fn windows_comparison_keys_cover_prefix_and_root_variants() {
     let rules = resolve_platform_rules(PlatformMode::Windows, None);
 
     assert_eq!(comparison_key(r"C:\", &rules), r"c:\");
+    assert_eq!(comparison_key(r"C:tools", &rules), "c:tools");
     assert_eq!(comparison_key(r"C:foo\..", &rules), "c:");
     assert_eq!(comparison_key("/", &rules), r"\");
     assert_eq!(comparison_key(r"foo\..", &rules), ".");

@@ -229,6 +229,34 @@ fn windows_executable_lookup_is_case_insensitive() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn windows_executable_lookup_ignores_non_utf8_file_names() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    let directory = tempfile::tempdir().expect("create tempdir");
+    let bin = directory.path().join("bin");
+    std::fs::create_dir(&bin).expect("create bin");
+    std::fs::write(
+        bin.join(OsString::from_vec(b"tool-\xff.exe".to_vec())),
+        "binary",
+    )
+    .expect("write non-utf8 file");
+
+    let report = resolve_command(
+        &bin.display().to_string(),
+        "tool",
+        PlatformMode::Windows,
+        Some(".EXE"),
+        directory.path(),
+        true,
+    );
+
+    assert!(report.candidates.is_empty());
+    assert_eq!(report.searched_directories, [bin.display().to_string()]);
+}
+
 #[test]
 fn related_name_hint_is_not_a_match() {
     let (directory, root) = relative_tempdir();
