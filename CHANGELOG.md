@@ -2,6 +2,13 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.0-rc.3 - 2026-06-03
+
+- Updated release metadata for the private cleanup release candidate.
+- Clarified release documentation around online pre-release checks, offline package verification, and expected package
+  contents.
+- Documented intentional residual coverage gaps while keeping the frozen v1 contract unchanged.
+
 ## 1.0.0-rc.2 - 2026-06-01
 
 - Added coverage-focused tests for config, scan, why-not, profile scanning, apply helpers, and CLI routing branches.

@@ -7,14 +7,15 @@ unless that is explicitly part of the release scope.
 
 1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, CLI version tests, binary wrapper version
    tests, and `CHANGELOG.md`.
-2. Run the full local gate:
+2. Run the full local gate. This requires network access for the online package and publish dry-run checks:
 
    ```sh
    make pre-release
    ```
 
    If network access is unavailable but the local Cargo cache is already populated, use this package verification
-   fallback before tagging:
+   fallback before tagging. It verifies package creation from the local cache, but it is not a full replacement for
+   the online pre-release gate:
 
    ```sh
    make package-check-offline
@@ -24,7 +25,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v1.0.0-rc.2"
+   version="v1.0.0-rc.3"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -60,7 +61,7 @@ publish to crates.io until those decisions are complete.
 
 ## Private v1 RC Checklist
 
-Before tagging `v1.0.0-rc.2`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
+Before tagging `v1.0.0-rc.3`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
 
 ```sh
 make v1-contract-check
@@ -81,10 +82,10 @@ cargo publish --dry-run --locked --allow-dirty
 ```
 
 Expected package contents are the crate metadata, `README.md`, `CHANGELOG.md`, `LICENSE`, and source files needed to
-build the library and binary. Internal project files such as integration tests, fuzz targets, scripts, release notes,
-local agent instructions, and repository automation are intentionally excluded. `SECURITY.md` and generated
-third-party license notices remain repository-level documents until a public release pass deliberately changes that
-package policy.
+build the library and binary. `Cargo.toml.orig` may appear in `cargo package --list`; it is Cargo-generated package
+metadata and is expected. Internal project files such as integration tests, fuzz targets, scripts, release notes, local
+agent instructions, and repository automation are intentionally excluded. `SECURITY.md` and generated third-party
+license notices remain repository-level documents until a public release pass deliberately changes that package policy.
 
 Do not run `cargo publish` until the repository visibility, README, security policy, and install instructions are ready
 for public users.

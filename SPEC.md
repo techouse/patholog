@@ -294,6 +294,22 @@ platform, permission, clock, or low-level I/O failure paths may remain uncovered
 
 ---
 
+## 1.14 Release Cleanup Release Candidate (v1.0.0-rc.3)
+
+`v1.0.0-rc.3` is a private cleanup release candidate. It should not add runtime behavior, expand the CLI, change JSON
+contracts, change config schema version `1`, or broaden mutation beyond `apply --yes`.
+
+The v1 contract remains frozen. rc.3 may clarify release documentation, package expectations, and coverage policy, but
+it must not move stable command names, documented flags, exit codes, JSON field names, or read-only versus mutating
+command boundaries.
+
+Coverage should remain meaningful rather than absolute. 100% coverage is not a v1 release gate. Intentional residual
+coverage gaps may remain for JSON serialization failure branches, completion UTF-8 failure branches, low-level
+temporary-file/write/persist failures, true OS read errors, and platform-specific filesystem behavior that would require
+brittle tests.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals
