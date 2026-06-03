@@ -1117,6 +1117,10 @@ v0.2 read-only issue-kind strings:
 * `unreadable`
 * `shadowed_command`
 
+v0.5 policy issue-kind strings:
+
+* `unwanted`
+
 Suggested Rust enum:
 
 ```rust
@@ -1128,6 +1132,7 @@ enum IssueKind {
     Unreadable,
     SuspiciousOrder,
     ShadowedCommand,
+    Unwanted,
 }
 ```
 
@@ -1157,6 +1162,10 @@ Support JSON for:
 * `conflicts`
 * `why`
 * `why-not`
+* `scan`
+* `apply --dry-run`
+* `apply --yes`
+* `config print`
 
 This is important for CI and editor tooling.
 
@@ -1396,13 +1405,13 @@ Show common pain:
 Explain:
 
 * Windows command resolution differs
-* shell config mutation is not performed
+* shell config mutation is limited to the `apply --yes` managed block
 * `scan` reads startup profiles but does not source or edit them
 * `clean` only proposes output
 
 ---
 
-## 15. Explicit Non-Goals for v0.1 through v0.9
+## 15. Explicit Non-Goals for v1
 
 Do not implement yet:
 
@@ -1421,7 +1430,7 @@ Do not implement yet:
 
 ## 16. Future Extensions
 
-Possible post-v0.9 features:
+Possible post-v1 features:
 
 * `watch` to detect PATH drift
 
