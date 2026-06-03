@@ -8,7 +8,7 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 ## Release Status
 
-`patholog` is a private v1 release candidate. The CLI is the primary product surface; public install and crates.io
+`patholog` is a final private v1 release candidate. The CLI is the primary product surface; public install and crates.io
 publishing instructions should wait until the final v1 release pass is complete.
 
 ## Quick Examples

@@ -2,6 +2,12 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.0-rc.4 - 2026-06-03
+
+- Cut the final private v1 release candidate before the `1.0.0` release decision.
+- Aligned public README safety wording and SPEC contract notes with the managed-block `apply --yes` behavior.
+- Kept runtime behavior, CLI surface, JSON contracts, config schema, and package policy unchanged.
+
 ## 1.0.0-rc.3 - 2026-06-03
 
 - Updated release metadata for the private cleanup release candidate.

@@ -310,6 +310,20 @@ brittle tests.
 
 ---
 
+## 1.15 Final v1 Release Candidate (v1.0.0-rc.4)
+
+`v1.0.0-rc.4` is the final private v1 release candidate before the `1.0.0` release decision. It should not add runtime
+behavior, expand the CLI, change JSON contracts, change config schema version `1`, or broaden mutation beyond
+`apply --yes`.
+
+The v1 contract remains frozen. rc.4 may carry final documentation and release-metadata cleanup, including clearer
+managed-block safety wording, but it must not move stable command names, documented flags, exit codes, JSON field
+names, package policy, or read-only versus mutating command boundaries.
+
+The next milestone should be final `v1.0.0` unless rc.4 validation exposes a release blocker.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals

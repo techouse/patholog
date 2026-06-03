@@ -5,8 +5,8 @@ unless that is explicitly part of the release scope.
 
 ## Private Release Checklist
 
-1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, CLI version tests, binary wrapper version
-   tests, and `CHANGELOG.md`.
+1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, and `CHANGELOG.md`. CLI and binary wrapper
+   version tests should derive expectations from Cargo metadata rather than hardcoding release versions.
 2. Run the full local gate. This requires network access for the online package and publish dry-run checks:
 
    ```sh
@@ -25,7 +25,7 @@ unless that is explicitly part of the release scope.
 4. Create an annotated release tag:
 
    ```sh
-   version="v1.0.0-rc.3"
+   version="v1.0.0-rc.4"
    git tag -a "$version" -m "Release $version"
    ```
 
@@ -61,7 +61,7 @@ publish to crates.io until those decisions are complete.
 
 ## Private v1 RC Checklist
 
-Before tagging `v1.0.0-rc.3`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
+Before tagging `v1.0.0-rc.4`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
 
 ```sh
 make v1-contract-check

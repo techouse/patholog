@@ -110,8 +110,9 @@ version-check: ## Check release version references agree
 	for file in Cargo.lock fuzz/Cargo.lock; do \
 		awk -v version="$$version" 'BEGIN { found = 0; in_package = 0 } /^\[\[package\]\]/ { in_package = 0 } /^name = "patholog"$$/ { in_package = 1 } in_package && $$0 == "version = \"" version "\"" { found = 1 } END { exit !found }' "$$file" || { echo "$$file does not contain patholog $$version" >&2; exit 1; }; \
 	done; \
-	grep -q "patholog $$version" src/cli/tests.rs || { echo "src/cli/tests.rs does not expect patholog $$version" >&2; exit 1; }; \
-	grep -q "patholog $$version" tests/binary_cli.rs || { echo "tests/binary_cli.rs does not expect patholog $$version" >&2; exit 1; }; \
+	! grep -Eq 'patholog [0-9]+\.[0-9]+\.[0-9]+' src/cli/tests.rs tests/binary_cli.rs || { echo "version tests must not hardcode patholog versions" >&2; exit 1; }; \
+	grep -q 'CARGO_PKG_VERSION' src/cli/tests.rs || { echo "src/cli/tests.rs does not derive version from Cargo metadata" >&2; exit 1; }; \
+	grep -q 'CARGO_PKG_VERSION' tests/binary_cli.rs || { echo "tests/binary_cli.rs does not derive version from Cargo metadata" >&2; exit 1; }; \
 	grep -q "^## $$version " CHANGELOG.md || { echo "CHANGELOG.md is missing $$version" >&2; exit 1; }; \
 	printf 'version-check: %s\n' "$$version"
 
