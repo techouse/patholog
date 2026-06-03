@@ -185,13 +185,10 @@ PATH values are handled as UTF-8 strings to preserve v0.1 parity. Symlinks, inod
 
 ## Safety
 
-All commands are read-only except `apply --yes`, which writes only the patholog-managed block in the selected shell profile. It does not edit:
-
-- `~/.zshrc`
-- `~/.bashrc`
-- `~/.profile`
-- PowerShell profiles
-- system environment configuration
+All commands are read-only except `apply --yes`, which writes only the patholog-managed block in the selected shell
+profile. When the selected target is `~/.zshrc`, `~/.bashrc`, `~/.profile`, or a PowerShell profile, `patholog` may
+create, append, or replace that managed block, but it does not rewrite arbitrary profile content outside the block or
+edit system environment configuration.
 
 `clean --stdout`, `clean --export`, `apply --dry-run`, and `completions` only print generated text. Mutating `apply` requires `--yes` and backs up existing profiles unless `--no-backup` is passed.
 
