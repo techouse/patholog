@@ -173,6 +173,23 @@ jobs:
       - name: Package check
         run: make package-check
 
+  installer-smoke:
+    name: Installer smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Lint and syntax check installer scripts
+        run: |
+          set -euo pipefail
+          shellcheck install.sh scripts/installer_smoke.sh
+          sh -n install.sh
+          bash -n scripts/installer_smoke.sh
+
+      - name: Installer smoke tests
+        run: make installer-smoke
+
   ci-required:
     name: CI Required
     if: ${{ always() }}
@@ -181,12 +198,14 @@ jobs:
       - quality
       - msrv
       - package
+      - installer-smoke
     runs-on: ubuntu-latest
     env:
       STABLE_RESULT: ${{ needs.stable.result }}
       QUALITY_RESULT: ${{ needs.quality.result }}
       MSRV_RESULT: ${{ needs.msrv.result }}
       PACKAGE_RESULT: ${{ needs.package.result }}
+      INSTALLER_SMOKE_RESULT: ${{ needs.installer-smoke.result }}
 
     steps:
       - name: Verify required job results
@@ -198,6 +217,7 @@ jobs:
             "quality:${QUALITY_RESULT}"
             "msrv:${MSRV_RESULT}"
             "package:${PACKAGE_RESULT}"
+            "installer-smoke:${INSTALLER_SMOKE_RESULT}"
           )
 
           failed=0
