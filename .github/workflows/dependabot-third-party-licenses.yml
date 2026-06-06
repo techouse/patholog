@@ -1,0 +1,68 @@
+name: Dependabot third-party licenses
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-third-party-licenses-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  update-third-party-licenses:
+    name: Update third-party license notices
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/cargo/')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Regenerate third-party license notices
+        run: make third-party-licenses
+
+      - name: Commit regenerated license notices
+        env:
+          AUTOFIX_TOKEN: ${{ secrets.DEPENDABOT_AUTOFIX_TOKEN }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- THIRD-PARTY-LICENSES.md; then
+            exit 0
+          fi
+
+          if [[ -z "${AUTOFIX_TOKEN}" ]]; then
+            echo "::error::DEPENDABOT_AUTOFIX_TOKEN Dependabot secret is required to push regenerated license notices."
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add THIRD-PARTY-LICENSES.md
+          git commit -m "Update third-party license notices"
+
+          git remote set-url origin "https://x-access-token:${AUTOFIX_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push origin "HEAD:${PR_HEAD_REF}"

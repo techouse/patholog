@@ -1,13 +1,19 @@
 # Releasing patholog
 
-`patholog` is currently released from the private repository. Do not publish to crates.io or make the repository public
-unless that is explicitly part of the release scope.
+`patholog` releases are public from `v1.0.0` onward. Releases publish the crate to crates.io, create a GitHub release
+with native binary artifacts, and publish library docs to GitHub Pages.
 
-## Private Release Checklist
+## Release Checklist
 
 1. Confirm the version in `Cargo.toml`, `Cargo.lock`, `fuzz/Cargo.lock`, and `CHANGELOG.md`. CLI and binary wrapper
    version tests should derive expectations from Cargo metadata rather than hardcoding release versions.
-2. Run the full local gate. This requires network access for the online package and publish dry-run checks:
+2. Confirm public package metadata and install docs:
+
+   ```sh
+   make package-metadata-check
+   ```
+
+3. Run the full local gate. This requires network access for the online package and publish dry-run checks:
 
    ```sh
    make pre-release
@@ -21,71 +27,69 @@ unless that is explicitly part of the release scope.
    make package-check-offline
    ```
 
-3. Commit the release changes.
-4. Create an annotated release tag:
+4. Run the GitHub Actions `Release Dry Run` workflow before the final tag:
+   - Use a version label such as `1.0.0-dry-run`.
+   - Build Linux and Windows artifacts by default.
+   - Run the signed macOS dry run only after release secrets and the `release` environment are configured.
+5. Commit the release changes.
+6. Create an annotated release tag:
 
    ```sh
-   version="v1.0.0-rc.4"
+   version="v1.0.0"
    git tag -a "$version" -m "Release $version"
    ```
 
-5. Verify the tag points at the intended commit:
+7. Verify the tag points at the intended commit:
 
    ```sh
    git tag --points-at HEAD
    git describe --tags --always --dirty --long
    ```
 
-6. Push the commit and tag:
+8. Push the commit and tag:
 
    ```sh
    git push origin main
    git push origin "$version"
    ```
 
-7. Confirm GitHub Actions pass on the pushed commit.
+9. Confirm the `Release` workflow passes:
+   - required tests pass
+   - crates.io publish succeeds
+   - Linux, Windows, and signed/notarized macOS artifacts are attached to the GitHub release
+   - checksums and artifact attestations are present
+   - GitHub Pages docs are published
+10. After crates.io indexing finishes, verify:
 
-## v1 Readiness Checklist
+    ```sh
+    cargo install patholog
+    patholog --version
+    patholog health --json
+    ```
 
-Before cutting a v1 release candidate, run:
+## Required GitHub Configuration
 
-```sh
-make package-metadata-check
-make install-smoke
-make v1-contract-check
-```
+The full release workflow expects:
 
-Confirm the package contents policy, `SECURITY.md` status, third-party license notice policy, README install claims,
-repository visibility, and crates.io publish decision are all intentional. Do not add public install instructions or
-publish to crates.io until those decisions are complete.
+- a `release` environment
+- `CARGO_REGISTRY_TOKEN`
+- `BUILD_CERTIFICATE_BASE64`
+- `BUILD_CERTIFICATE_SHA1`
+- `KEYCHAIN_PASSWORD`
+- `P12_PASSWORD`
+- `APPLE_ID`
+- `NOTARYTOOL_PASSWORD`
+- `TEAM_ID`
+- `NOTARYTOOL_KEYCHAIN_PROFILE`
+- optional coverage secrets used by `test.yml`: `CODECOV_TOKEN` and `CODACY_PROJECT_TOKEN`
 
-## Private v1 RC Checklist
+## Package Contents Policy
 
-Before tagging `v1.0.0-rc.4`, confirm the v1 contract remains frozen except for release-blocking bug fixes, then run:
-
-```sh
-make v1-contract-check
-make pre-release
-```
-
-After tagging and pushing the RC commit, verify the tag points at the intended commit and confirm GitHub Actions pass.
-Do not publish the RC to crates.io unless publishing is explicitly added to the release scope.
-
-## Public Release Notes
-
-Before the first public GitHub or crates.io release, re-check package contents with:
-
-```sh
-make package-list
-make package-check-offline
-cargo publish --dry-run --locked --allow-dirty
-```
-
-Expected package contents are the crate metadata, `README.md`, `CHANGELOG.md`, `LICENSE`, and source files needed to
+The crates.io package should contain Cargo metadata, `README.md`, `CHANGELOG.md`, `LICENSE`, and source files needed to
 build the library and binary. `Cargo.toml.orig` may appear in `cargo package --list`; it is Cargo-generated package
-metadata and is expected. Internal project files such as integration tests, fuzz targets, scripts, release notes, local
-agent instructions, and repository automation are intentionally excluded. `SECURITY.md` and generated third-party
-license notices remain repository-level documents until a public release pass deliberately changes that package policy.
+metadata and is expected.
 
-Do not run `cargo publish` until the repository visibility, README, security policy, and install instructions are ready
-for public users.
+Internal project files such as integration tests, fuzz targets, scripts, release notes, local agent instructions, and
+repository automation are intentionally excluded from the crate package. `SECURITY.md` and generated third-party
+license notices remain excluded from the crates.io package, but `THIRD-PARTY-LICENSES.md` is included in native binary
+release archives and Linux OS packages.

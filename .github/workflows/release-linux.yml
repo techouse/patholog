@@ -1,0 +1,151 @@
+name: Release Linux
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
+      artifact-retention-days:
+        description: Number of days to retain uploaded workflow artifacts
+        required: false
+        type: number
+        default: 30
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Linux packages (${{ matrix.artifact_arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            artifact_arch: x86_64
+            target_triple: x86_64-unknown-linux-gnu
+            musl_target_triple: x86_64-unknown-linux-musl
+          - runner: ubuntu-24.04-arm
+            artifact_arch: arm64
+            target_triple: aarch64-unknown-linux-gnu
+            musl_target_triple: aarch64-unknown-linux-musl
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify host target
+        run: |
+          set -euo pipefail
+          rustc_version="$(rustc -vV)"
+          printf '%s\n' "${rustc_version}"
+          grep -Fqx "host: ${{ matrix.target_triple }}" <<< "${rustc_version}"
+
+      - name: Install packaging tools
+        run: |
+          set -euo pipefail
+          cargo install cargo-deb --locked
+          cargo install cargo-generate-rpm --locked
+
+      - name: Install musl target
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          rustup target add "${{ matrix.musl_target_triple }}"
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Build musl release binary
+        run: cargo build --release --locked --target "${{ matrix.musl_target_triple }}"
+
+      - name: Generate shell completions
+        run: |
+          set -euo pipefail
+          mkdir -p target/completions
+          target/release/patholog completions bash > target/completions/patholog.bash
+          target/release/patholog completions zsh > target/completions/_patholog
+          target/release/patholog completions fish > target/completions/patholog.fish
+          target/release/patholog completions pwsh > target/completions/patholog.ps1
+
+      - name: Build tar archive
+        run: |
+          set -euo pipefail
+          package="patholog-${{ inputs.version }}-${{ matrix.target_triple }}"
+          mkdir -p "dist/${package}"
+          cp target/release/patholog "dist/${package}/patholog"
+          cp -R target/completions "dist/${package}/completions"
+          cp README.md LICENSE THIRD-PARTY-LICENSES.md "dist/${package}/"
+          tar -czf "dist/${package}.tar.gz" -C dist "${package}"
+
+      - name: Build musl tar archive
+        run: |
+          set -euo pipefail
+          package="patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}"
+          mkdir -p "dist/${package}"
+          cp "target/${{ matrix.musl_target_triple }}/release/patholog" "dist/${package}/patholog"
+          cp -R target/completions "dist/${package}/completions"
+          cp README.md LICENSE THIRD-PARTY-LICENSES.md "dist/${package}/"
+          tar -czf "dist/${package}.tar.gz" -C dist "${package}"
+
+      - name: Build Debian package
+        run: |
+          set -euo pipefail
+          cargo deb --locked --no-build
+          cp target/debian/*.deb dist/
+
+      - name: Build RPM package
+        run: |
+          set -euo pipefail
+          cargo generate-rpm
+          cp target/generate-rpm/*.rpm dist/
+
+      - name: Verify package artifacts
+        run: |
+          set -euo pipefail
+          gnu_archive="dist/patholog-${{ inputs.version }}-${{ matrix.target_triple }}.tar.gz"
+          musl_archive="dist/patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}.tar.gz"
+          test -f "${gnu_archive}"
+          test -f "${musl_archive}"
+          gnu_contents="$(mktemp)"
+          musl_contents="$(mktemp)"
+          trap 'rm -f "${gnu_contents}" "${musl_contents}"' EXIT
+          tar -tzf "${gnu_archive}" > "${gnu_contents}"
+          tar -tzf "${musl_archive}" > "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/patholog" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/completions/patholog.bash" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/completions/_patholog" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/completions/patholog.fish" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/completions/patholog.ps1" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.target_triple }}/THIRD-PARTY-LICENSES.md" "${gnu_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/patholog" "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/completions/patholog.bash" "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/completions/_patholog" "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/completions/patholog.fish" "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/completions/patholog.ps1" "${musl_contents}"
+          grep -Fqx "patholog-${{ inputs.version }}-${{ matrix.musl_target_triple }}/THIRD-PARTY-LICENSES.md" "${musl_contents}"
+          test "$(find dist -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')" = "1"
+          test "$(find dist -maxdepth 1 -name '*.rpm' | wc -l | tr -d ' ')" = "1"
+          find dist -maxdepth 1 -type f -print
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: patholog-linux-${{ matrix.artifact_arch }}
+          path: |
+            dist/*.tar.gz
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: error
+          retention-days: ${{ inputs['artifact-retention-days'] }}

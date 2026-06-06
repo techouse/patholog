@@ -1,0 +1,84 @@
+name: Release Windows
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        type: string
+      artifact-retention-days:
+        description: Number of days to retain uploaded workflow artifacts
+        required: false
+        type: number
+        default: 30
+
+defaults:
+  run:
+    shell: pwsh
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build Windows MSVC binary
+    runs-on: windows-latest
+    env:
+      TARGET_TRIPLE: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked --target $env:TARGET_TRIPLE
+
+      - name: Verify release binary
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "target\$env:TARGET_TRIPLE\release\patholog.exe"
+          if (-not (Test-Path $exe)) {
+            throw "Missing release binary: $exe"
+          }
+          & $exe --version
+          $signature = Get-AuthenticodeSignature $exe
+          if ($signature.Status -eq "NotSigned") {
+            Write-Host "Windows binary is currently unsigned; Authenticode signing is not configured yet."
+          } else {
+            $signature | Format-List
+          }
+
+      - name: Generate shell completions
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "target\$env:TARGET_TRIPLE\release\patholog.exe"
+          New-Item -ItemType Directory -Force dist\completions | Out-Null
+          & $exe completions bash | Set-Content -Encoding utf8NoBOM dist\completions\patholog.bash
+          & $exe completions zsh | Set-Content -Encoding utf8NoBOM dist\completions\_patholog
+          & $exe completions fish | Set-Content -Encoding utf8NoBOM dist\completions\patholog.fish
+          & $exe completions pwsh | Set-Content -Encoding utf8NoBOM dist\completions\patholog.ps1
+
+      - name: Package release archive
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = "patholog-${{ inputs.version }}-$env:TARGET_TRIPLE"
+          $packageDir = "dist\$package"
+          New-Item -ItemType Directory -Force $packageDir | Out-Null
+          Copy-Item "target\$env:TARGET_TRIPLE\release\patholog.exe" "$packageDir\patholog.exe"
+          Copy-Item -Recurse dist\completions "$packageDir\completions"
+          Copy-Item README.md, LICENSE, THIRD-PARTY-LICENSES.md $packageDir
+          Compress-Archive -Path "$packageDir\*" -DestinationPath "dist\$package.zip"
+
+      - name: Upload Windows archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: patholog-windows-x86_64
+          path: dist/patholog-${{ inputs.version }}-x86_64-pc-windows-msvc.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs['artifact-retention-days'] }}

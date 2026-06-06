@@ -77,11 +77,18 @@ package-metadata-check: ## Check public package metadata and v1 package policy
 	@grep -q '^license = "BSD-3-Clause"' Cargo.toml
 	@grep -q '^readme = "README.md"' Cargo.toml
 	@grep -q '^documentation = "https://docs.rs/patholog"' Cargo.toml
+	@grep -q '^repository = "https://github.com/techouse/patholog"' Cargo.toml
+	@grep -q '^homepage = "https://techouse.github.io/patholog/"' Cargo.toml
+	@grep -q '^\[package.metadata.deb\]' Cargo.toml
+	@grep -q '^\[package.metadata.generate-rpm\]' Cargo.toml
+	@grep -q '^\[profile.release\]' Cargo.toml
+	@grep -q '^strip = "symbols"' Cargo.toml
 	@for keyword in cli file-system path utilities; do grep -q "\"$$keyword\"" Cargo.toml || exit 1; done
 	@grep -q '"SECURITY.md"' Cargo.toml
 	@grep -q '"THIRD-PARTY-LICENSES.md"' Cargo.toml
-	@grep -q 'private v1 release candidate' README.md
-	@! grep -Ei 'cargo install patholog' README.md
+	@grep -q 'cargo install patholog' README.md
+	@grep -q 'github.com/techouse/patholog/releases' README.md
+	@! grep -Ei 'private v1 release candidate|final private v1 release candidate|pre-v1' README.md
 	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
 	! grep -E '^(SECURITY\.md|THIRD-PARTY-LICENSES\.md)$$' $(PACKAGE_LIST)
 

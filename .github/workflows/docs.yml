@@ -1,0 +1,49 @@
+name: Docs
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rustdoc:
+    name: rustdoc
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Doc tests
+        run: cargo test --doc --locked
+
+      - name: Build public docs
+        env:
+          RUSTDOCFLAGS: -D warnings --cfg docsrs
+        run: |
+          set -euo pipefail
+
+          cargo doc --locked --no-deps --lib
+
+          cat > target/doc/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <meta http-equiv="refresh" content="0; url=./patholog/index.html">
+          <link rel="canonical" href="./patholog/index.html">
+          <title>patholog docs</title>
+          <a href="./patholog/index.html">Open patholog docs</a>
+          EOF
+
+      - name: Deploy docs to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          publish_branch: gh-pages
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+          force_orphan: true
+          enable_jekyll: false

@@ -1,0 +1,173 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  release-metadata:
+    name: Release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Extract release version
+        id: version
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          if [[ -z "$version" || "$version" == "$GITHUB_REF_NAME" ]]; then
+            echo "Release tags must use the v*.*.* format."
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+  tests:
+    name: Required tests
+    uses: ./.github/workflows/test.yml
+
+  publish-crate:
+    name: Publish crate
+    needs:
+      - release-metadata
+      - build-linux
+      - build-windows
+      - build-macos-universal
+    uses: ./.github/workflows/release-crates-io.yml
+    with:
+      version: ${{ needs['release-metadata'].outputs.version }}
+    secrets: inherit
+
+  build-linux:
+    name: Build Linux packages
+    needs:
+      - tests
+      - release-metadata
+    uses: ./.github/workflows/release-linux.yml
+    with:
+      version: ${{ needs['release-metadata'].outputs.version }}
+
+  build-windows:
+    name: Build Windows binary
+    needs:
+      - tests
+      - release-metadata
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      version: ${{ needs['release-metadata'].outputs.version }}
+
+  build-macos-universal:
+    name: Build signed universal macOS binary
+    needs:
+      - tests
+      - release-metadata
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      version: ${{ needs['release-metadata'].outputs.version }}
+    secrets: inherit
+
+  github-release:
+    name: Publish GitHub release
+    needs:
+      - release-metadata
+      - publish-crate
+      - build-linux
+      - build-windows
+      - build-macos-universal
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      attestations: write
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create tag-specific release notes
+        id: release-notes
+        run: |
+          set -euo pipefail
+
+          version="${{ needs['release-metadata'].outputs.version }}"
+          notes_path="${RUNNER_TEMP}/RELEASE_NOTES.md"
+
+          if ! grep -Eq "^##[[:space:]]+${version}([[:space:]]|$)" CHANGELOG.md; then
+            echo "CHANGELOG.md does not contain a section for ${version}."
+            exit 1
+          fi
+
+          awk -v ver="${version}" '
+            $0 ~ "^##[[:space:]]+" ver "([[:space:]]|$)" {print; insec=1; next}
+            insec && /^##[[:space:]]/ {exit}
+            insec {print}
+          ' CHANGELOG.md | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' > "${notes_path}"
+
+          if [[ ! -s "${notes_path}" ]]; then
+            echo "Release notes for ${version} are empty."
+            exit 1
+          fi
+
+          echo "path=${notes_path}" >> "${GITHUB_OUTPUT}"
+
+      - name: Download release archives
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+
+          : > SHA256SUMS.txt
+          primary_count=0
+          while IFS= read -r -d '' path; do
+            file="${path#./}"
+            sha256sum "$file" >> SHA256SUMS.txt
+            sha256sum "$file" > "$file.sha256"
+            primary_count=$((primary_count + 1))
+          done < <(
+            find . -maxdepth 1 -type f \
+              ! -name '*.sha256' \
+              ! -name 'SHA256SUMS.txt' \
+              -print0 | sort -z
+          )
+
+          if ((primary_count == 0)); then
+            echo "No release artifacts found for checksum generation."
+            exit 1
+          fi
+
+          cat SHA256SUMS.txt
+
+      - name: Attest release artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_PATH: ${{ steps.release-notes.outputs.path }}
+        run: |
+          set -euo pipefail
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file "${RELEASE_NOTES_PATH}"
+
+  publish-docs:
+    name: Publish docs
+    needs:
+      - github-release
+    uses: ./.github/workflows/docs.yml
+    permissions:
+      contents: write

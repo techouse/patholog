@@ -6,10 +6,17 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
-## Release Status
+## Installation
 
-`patholog` is a final private v1 release candidate. The CLI is the primary product surface; public install and crates.io
-publishing instructions should wait until the final v1 release pass is complete.
+Install the CLI from crates.io:
+
+```sh
+cargo install patholog
+```
+
+Prebuilt release archives are available from the
+[GitHub releases page](https://github.com/techouse/patholog/releases). Archives include the `patholog` binary,
+shell completions, the README, the project license, and third-party license notices.
 
 ## Quick Examples
 

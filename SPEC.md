@@ -324,6 +324,17 @@ The next milestone should be final `v1.0.0` unless rc.4 validation exposes a rel
 
 ---
 
+## 1.16 Public v1 Release (v1.0.0)
+
+`v1.0.0` is the first public release. It freezes the documented v1 contract: command names, documented flags, exit
+codes, JSON field names, config schema version `1`, and the boundary that only `apply --yes` mutates files.
+
+The public release may add package metadata, public install documentation, crates.io publishing, GitHub release
+artifacts, docs publishing, and release automation. It must not add runtime behavior, expand the CLI, change JSON
+contracts, change config schema version `1`, or broaden mutation beyond `apply --yes`.
+
+---
+
 ## 2. Product Goals
 
 ### Primary goals

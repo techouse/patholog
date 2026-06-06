@@ -1,0 +1,138 @@
+name: Release Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version label to use in dry-run artifact names
+        required: true
+        type: string
+        default: "1.0.0-dry-run"
+      run-linux:
+        description: Build Linux dry-run artifacts
+        required: true
+        type: boolean
+        default: true
+      run-windows:
+        description: Build Windows dry-run artifact
+        required: true
+        type: boolean
+        default: true
+      run-macos-signed:
+        description: Build, sign, and notarize the macOS artifact using the release environment
+        required: true
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate package metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check package metadata
+        run: make package-metadata-check
+
+      - name: Check package contents
+        run: make package-check
+
+      - name: Dry-run crates.io publish
+        run: cargo publish --dry-run --locked
+
+  build-linux:
+    name: Build Linux dry-run artifacts
+    if: ${{ inputs['run-linux'] }}
+    needs: validate
+    uses: ./.github/workflows/release-linux.yml
+    with:
+      version: ${{ inputs.version }}
+      artifact-retention-days: 1
+
+  build-windows:
+    name: Build Windows dry-run artifact
+    if: ${{ inputs['run-windows'] }}
+    needs: validate
+    uses: ./.github/workflows/release-windows.yml
+    with:
+      version: ${{ inputs.version }}
+      artifact-retention-days: 1
+
+  build-macos-signed:
+    name: Build signed macOS dry-run artifact
+    if: ${{ inputs['run-macos-signed'] }}
+    needs: validate
+    uses: ./.github/workflows/release-macos.yml
+    with:
+      version: ${{ inputs.version }}
+      artifact-retention-days: 1
+    secrets: inherit
+
+  checksums:
+    name: Generate dry-run checksums
+    needs:
+      - build-linux
+      - build-windows
+      - build-macos-signed
+    if: ${{ always() && !cancelled() && (needs['build-linux'].result == 'success' || needs['build-linux'].result == 'skipped') && (needs['build-windows'].result == 'success' || needs['build-windows'].result == 'skipped') && (needs['build-macos-signed'].result == 'success' || needs['build-macos-signed'].result == 'skipped') && (needs['build-linux'].result == 'success' || needs['build-windows'].result == 'success' || needs['build-macos-signed'].result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+    steps:
+      - name: Download dry-run artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+
+          : > SHA256SUMS.txt
+          primary_count=0
+          while IFS= read -r -d '' path; do
+            file="${path#./}"
+            sha256sum "$file" >> SHA256SUMS.txt
+            sha256sum "$file" > "$file.sha256"
+            primary_count=$((primary_count + 1))
+          done < <(
+            find . -maxdepth 1 -type f \
+              ! -name '*.sha256' \
+              ! -name 'SHA256SUMS.txt' \
+              -print0 | sort -z
+          )
+
+          if ((primary_count == 0)); then
+            echo "No release artifacts found for checksum generation."
+            exit 1
+          fi
+
+          cat SHA256SUMS.txt
+
+      - name: Attest dry-run artifacts
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*
+
+      - name: Upload combined dry-run artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: patholog-release-dry-run
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 1

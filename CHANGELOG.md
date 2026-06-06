@@ -2,6 +2,13 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.0 - 2026-06-06
+
+- Released the frozen v1 CLI, JSON, exit-code, and config contract publicly.
+- Added public package metadata, install documentation, and release instructions.
+- Added envq-style release automation for crates.io publishing, GitHub release artifacts, signed macOS builds, docs
+  publishing, dry-run validation, checksums, and artifact attestations.
+
 ## 1.0.0-rc.4 - 2026-06-03
 
 - Cut the final private v1 release candidate before the `1.0.0` release decision.
