@@ -1,12 +1,13 @@
 #![forbid(unsafe_code)]
+#![warn(missing_docs)]
+#![doc = include_str!("../README.md")]
 
-//! PATH diagnostics and command resolution library used by the `patholog` CLI.
+//!
+//! # Library Example
 //!
 //! The command-line interface is the primary product surface. The public Rust API
 //! is intentionally small and is mainly useful for tests, fuzzing, and embedding
 //! the CLI with an injected runtime context.
-//!
-//! # Example
 //!
 //! ```
 //! use std::path::PathBuf;
