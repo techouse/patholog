@@ -11,7 +11,8 @@ FUZZ_SMOKE_SECONDS ?= 30
 .PHONY: help build build-release clean fmt fmt-check clippy fuzz-clippy test test-all \
 	test-doc coverage coverage-html msrv package-list package-check package-check-offline \
 	package-metadata-check install-smoke docs docs-missing third-party-licenses third-party-licenses-check \
-	publish-dry-run version-check release-check v1-contract-check pre-release ci fuzz-build fuzz-smoke fuzz-soak
+	publish-dry-run version-check release-check v1-contract-check pre-release ci installer-smoke \
+	fuzz-build fuzz-smoke fuzz-soak
 
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_.-]+:.*## / {printf "%-18s %s\n", $$1, $$2}' $(MAKEFILE_LIST) | sort
@@ -83,14 +84,22 @@ package-metadata-check: ## Check public package metadata and v1 package policy
 	@grep -q '^\[package.metadata.generate-rpm\]' Cargo.toml
 	@grep -q '^\[profile.release\]' Cargo.toml
 	@grep -q '^strip = "symbols"' Cargo.toml
+	@grep -q '"install.sh"' Cargo.toml
 	@for keyword in cli file-system path utilities; do grep -q "\"$$keyword\"" Cargo.toml || exit 1; done
 	@grep -q '"SECURITY.md"' Cargo.toml
 	@grep -q '"THIRD-PARTY-LICENSES.md"' Cargo.toml
+	@grep -q '^REPO="techouse/patholog"$$' install.sh
+	@grep -q '^BINARY_NAME="patholog"$$' install.sh
+	@sh -n install.sh
 	@grep -q 'cargo install patholog' README.md
+	@grep -q 'brew install techouse/patholog/patholog' README.md
+	@grep -q 'brew tap techouse/patholog' README.md
+	@grep -q 'raw.githubusercontent.com/techouse/patholog/refs/heads/main/install.sh' README.md
 	@grep -q 'github.com/techouse/patholog/releases' README.md
+	@grep -q 'PATHOLOG_INSTALL_COMPLETIONS=0' README.md
 	@! grep -Ei 'private v1 release candidate|final private v1 release candidate|pre-v1' README.md
 	$(CARGO) package --locked --list --allow-dirty > $(PACKAGE_LIST)
-	! grep -E '^(SECURITY\.md|THIRD-PARTY-LICENSES\.md)$$' $(PACKAGE_LIST)
+	! grep -E '^(SECURITY\.md|THIRD-PARTY-LICENSES\.md|install\.sh)$$' $(PACKAGE_LIST)
 
 install-smoke: ## Install packaged crate into a temporary root and smoke-test it
 	@set -e; \
@@ -110,6 +119,11 @@ install-smoke: ## Install packaged crate into a temporary root and smoke-test it
 	if [ ! -x "$$bin" ] && [ -x "$$bin.exe" ]; then bin="$$bin.exe"; fi; \
 	"$$bin" --version | grep -q "patholog $$version"; \
 	"$$bin" health --json | grep -q '"score"'
+
+installer-smoke: ## Smoke-test the GitHub release installer without network access
+	@sh -n install.sh
+	@bash -n scripts/installer_smoke.sh
+	bash scripts/installer_smoke.sh
 
 version-check: ## Check release version references agree
 	@version="$$(sed -n 's/^version = "\([^"]*\)"$$/\1/p' Cargo.toml | head -n 1)"; \
@@ -140,6 +154,7 @@ v1-contract-check: ## Run v1 CLI, JSON, docs, and package contract checks
 	$(MAKE) package-list
 	$(MAKE) package-check-offline
 	$(MAKE) install-smoke
+	$(MAKE) installer-smoke
 
 docs: ## Build library docs with docs.rs warning settings
 	RUSTDOCFLAGS='$(RUSTDOCFLAGS_DOCS)' $(CARGO) doc --locked --no-deps --lib
@@ -170,6 +185,7 @@ pre-release: ## Run the full local gate before tagging a release
 	$(MAKE) docs-missing
 	$(MAKE) msrv
 	$(MAKE) third-party-licenses-check
+	$(MAKE) installer-smoke
 	$(MAKE) package-check
 	$(MAKE) publish-dry-run
 	$(MAKE) build-release
@@ -181,6 +197,7 @@ ci: ## Run the main local CI checks
 	$(MAKE) test
 	$(MAKE) test-doc
 	$(MAKE) msrv
+	$(MAKE) installer-smoke
 	$(MAKE) package-check
 
 fuzz-build: ## Build all cargo-fuzz targets

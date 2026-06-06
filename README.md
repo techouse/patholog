@@ -16,15 +16,91 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 ## Installation
 
-Install the CLI from crates.io:
+Install the latest GitHub release on Linux or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/techouse/patholog/refs/heads/main/install.sh | sh
+```
+
+The installer downloads the matching release archive, verifies its SHA-256
+checksum, installs `patholog` to `~/.local/bin`, and installs bash, zsh, and fish
+completions. Set `PATHOLOG_INSTALL_DIR` to choose another install directory, set
+`PATHOLOG_VERSION` to install a specific release, set `PATHOLOG_LINUX_LIBC=musl`
+or `gnu` to override Linux libc detection, and set
+`PATHOLOG_INSTALL_COMPLETIONS=0` to skip completions.
+
+Install with Homebrew:
+
+```sh
+brew install techouse/patholog/patholog
+```
+
+Or tap the repository first:
+
+```sh
+brew tap techouse/patholog
+brew install patholog
+```
+
+Install from crates.io:
 
 ```sh
 cargo install patholog
 ```
 
-Prebuilt release archives are available from the
-[GitHub releases page](https://github.com/techouse/patholog/releases). Archives include the `patholog` binary,
-shell completions, the README, the project license, and third-party license notices.
+Or download a release artifact from
+[GitHub Releases](https://github.com/techouse/patholog/releases). Linux releases
+include GNU/glibc and musl `.tar.gz` archives for x86_64 and ARM64, plus
+GNU/glibc `.deb` and `.rpm` packages for x86_64 and ARM64. Windows releases
+include a `.zip` archive for x86_64 MSVC. macOS releases include a signed and
+notarized universal `.zip` archive for Apple Silicon and Intel Macs. Archives
+include the `patholog` binary, shell completions, `README.md`, `LICENSE`, and
+`THIRD-PARTY-LICENSES.md`. Verify downloads with the release `SHA256SUMS.txt`
+file or the per-artifact `.sha256` sidecar.
+
+### Shell Completions
+
+The `install.sh` installer installs bash, zsh, and fish completions by default.
+Set `PATHOLOG_INSTALL_COMPLETIONS=0` to skip completion installation.
+
+Install shell completions manually by writing the generated script to your
+shell's completion directory.
+
+Bash:
+
+```sh
+mkdir -p ~/.local/share/bash-completion/completions
+patholog completions bash > ~/.local/share/bash-completion/completions/patholog
+```
+
+Zsh:
+
+```sh
+mkdir -p ~/.zfunc
+patholog completions zsh > ~/.zfunc/_patholog
+```
+
+Add this to `.zshrc` if `~/.zfunc` is not already in `fpath`:
+
+```zsh
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit
+```
+
+Fish:
+
+```fish
+mkdir -p ~/.config/fish/completions
+patholog completions fish > ~/.config/fish/completions/patholog.fish
+```
+
+PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force (Split-Path $PROFILE) | Out-Null
+patholog completions pwsh | Add-Content $PROFILE
+```
 
 ## Quick Examples
 

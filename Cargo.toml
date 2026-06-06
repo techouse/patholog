@@ -24,6 +24,7 @@ exclude = [
     "CODE-OF-CONDUCT.md",
     "docs/",
     "fuzz/**",
+    "install.sh",
     "Makefile",
     "RELEASING.md",
     "SPEC.md",
