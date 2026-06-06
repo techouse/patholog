@@ -2,7 +2,15 @@
 
 Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
+[![GitHub Release](https://img.shields.io/github/v/release/techouse/patholog?logo=github)](https://github.com/techouse/patholog/releases/latest)
+[![Crates.io Version](https://img.shields.io/crates/v/patholog?logo=rust)](https://crates.io/crates/patholog)
+[![Crates.io MSRV](https://img.shields.io/crates/msrv/patholog?logo=rust)](https://crates.io/crates/patholog)
 [![Test](https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg)](https://github.com/techouse/patholog/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/techouse/patholog/graph/badge.svg?token=qsdPHsjKcq)](https://codecov.io/gh/techouse/patholog)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/44b97859730f460c82a22c72ee21f8ed)](https://app.codacy.com/gh/techouse/patholog/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![GitHub](https://img.shields.io/github/license/techouse/patholog)](https://github.com/techouse/patholog/blob/main/LICENSE)
+[![GitHub Sponsors](https://img.shields.io/github/sponsors/techouse?logo=github)](https://github.com/sponsors/techouse)
+[![GitHub Repo stars](https://img.shields.io/github/stars/techouse/patholog)](https://github.com/techouse/patholog/stargazers)
 
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
