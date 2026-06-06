@@ -14,6 +14,39 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
+## Why It Exists
+
+PATH problems are usually invisible until the wrong tool runs. `patholog` is built for cases like:
+
+- `python`, `node`, or `cargo` resolving to an unexpected executable.
+- duplicate PATH entries hiding the real search order.
+- missing directories left behind by old installers.
+- unreadable PATH entries or shadowed command candidates.
+- Cargo, Homebrew, pyenv, nvm, or system directories appearing in surprising order.
+- shell config drift between machines.
+
+The goal is to explain before changing anything.
+
+## Quick Examples
+
+```sh
+patholog doctor
+patholog health --json
+patholog doctor --command python
+patholog why python
+patholog why-not poetry
+patholog conflicts cargo
+patholog scan
+patholog clean --stdout
+patholog clean --stdout --drop /sw/bin
+patholog clean --export --var manpath --shell zsh
+patholog clean --export --shell zsh
+patholog apply --dry-run --shell zsh
+patholog apply --shell zsh --yes
+patholog config check --config patholog.toml
+patholog completions zsh
+```
+
 ## Installation
 
 Install the latest GitHub release on Linux or macOS:
@@ -101,39 +134,6 @@ PowerShell:
 New-Item -ItemType Directory -Force (Split-Path $PROFILE) | Out-Null
 patholog completions pwsh | Add-Content $PROFILE
 ```
-
-## Quick Examples
-
-```sh
-patholog doctor
-patholog health --json
-patholog doctor --command python
-patholog why python
-patholog why-not poetry
-patholog conflicts cargo
-patholog scan
-patholog clean --stdout
-patholog clean --stdout --drop /sw/bin
-patholog clean --export --var manpath --shell zsh
-patholog clean --export --shell zsh
-patholog apply --dry-run --shell zsh
-patholog apply --shell zsh --yes
-patholog config check --config patholog.toml
-patholog completions zsh
-```
-
-## Why It Exists
-
-PATH problems are usually invisible until the wrong tool runs. `patholog` is built for cases like:
-
-- `python`, `node`, or `cargo` resolving to an unexpected executable.
-- duplicate PATH entries hiding the real search order.
-- missing directories left behind by old installers.
-- unreadable PATH entries or shadowed command candidates.
-- Cargo, Homebrew, pyenv, nvm, or system directories appearing in surprising order.
-- shell config drift between machines.
-
-The goal is to explain before changing anything.
 
 ## Command Surface
 
