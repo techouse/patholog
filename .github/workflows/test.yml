@@ -172,3 +172,43 @@ jobs:
 
       - name: Package check
         run: make package-check
+
+  ci-required:
+    name: CI Required
+    if: ${{ always() }}
+    needs:
+      - stable
+      - quality
+      - msrv
+      - package
+    runs-on: ubuntu-latest
+    env:
+      STABLE_RESULT: ${{ needs.stable.result }}
+      QUALITY_RESULT: ${{ needs.quality.result }}
+      MSRV_RESULT: ${{ needs.msrv.result }}
+      PACKAGE_RESULT: ${{ needs.package.result }}
+
+    steps:
+      - name: Verify required job results
+        run: |
+          set -euo pipefail
+
+          results=(
+            "stable:${STABLE_RESULT}"
+            "quality:${QUALITY_RESULT}"
+            "msrv:${MSRV_RESULT}"
+            "package:${PACKAGE_RESULT}"
+          )
+
+          failed=0
+          for entry in "${results[@]}"; do
+            job="${entry%%:*}"
+            result="${entry#*:}"
+            echo "${job}: ${result}"
+            if [[ "${result}" != "success" ]]; then
+              echo "::error::${job} finished with result '${result}'"
+              failed=1
+            fi
+          done
+
+          exit "${failed}"
