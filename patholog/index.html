@@ -1,0 +1,204 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="patholog"><title>patholog - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="patholog" data-themes="" data-resource-suffix="" data-rustdoc-version="1.96.0 (ac68faa20 2026-05-25)" data-channel="1.96.0" data-search-js="search-b5634cc7.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../static.files/storage-41dd4d93.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate patholog</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../patholog/index.html">patholog</a><span class="version">1.0.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#patholog" title="patholog">patholog</a><ul><li><a href="#installation" title="Installation">Installation</a></li><li><a href="#quick-examples" title="Quick Examples">Quick Examples</a></li><li><a href="#why-it-exists" title="Why It Exists">Why It Exists</a></li><li><a href="#command-surface" title="Command Surface">Command Surface</a></li><li><a href="#read-only-diagnostics" title="Read-Only Diagnostics">Read-Only Diagnostics</a></li><li><a href="#output-modes" title="Output Modes">Output Modes</a></li><li><a href="#config-files" title="Config Files">Config Files</a></li><li><a href="#exit-codes" title="Exit Codes">Exit Codes</a></li><li><a href="#platform-model" title="Platform Model">Platform Model</a></li><li><a href="#safety" title="Safety">Safety</a></li><li><a href="#development" title="Development">Development</a></li></ul></li><li><a href="#library-example" title="Library Example">Library Example</a></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>patholog</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/patholog/lib.rs.html#1-123">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="patholog"><a class="doc-anchor" href="#patholog">§</a>patholog</h2>
+<p>Diagnose and fix PATH problems across macOS, Linux, and Windows.</p>
+<p><a href="https://github.com/techouse/patholog/releases/latest"><img src="https://img.shields.io/github/v/release/techouse/patholog?logo=github" alt="GitHub Release" /></a>
+<a href="https://crates.io/crates/patholog"><img src="https://img.shields.io/crates/v/patholog?logo=rust" alt="Crates.io Version" /></a>
+<a href="https://crates.io/crates/patholog"><img src="https://img.shields.io/crates/msrv/patholog?logo=rust" alt="Crates.io MSRV" /></a>
+<a href="https://github.com/techouse/patholog/actions/workflows/test.yml"><img src="https://github.com/techouse/patholog/actions/workflows/test.yml/badge.svg" alt="Test" /></a>
+<a href="https://codecov.io/gh/techouse/patholog"><img src="https://codecov.io/gh/techouse/patholog/graph/badge.svg?token=qsdPHsjKcq" alt="codecov" /></a>
+<a href="https://app.codacy.com/gh/techouse/patholog/dashboard?utm_source=gh&amp;utm_medium=referral&amp;utm_content=&amp;utm_campaign=Badge_grade"><img src="https://app.codacy.com/project/badge/Grade/44b97859730f460c82a22c72ee21f8ed" alt="Codacy Badge" /></a>
+<a href="https://github.com/techouse/patholog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/techouse/patholog" alt="GitHub" /></a>
+<a href="https://github.com/sponsors/techouse"><img src="https://img.shields.io/github/sponsors/techouse?logo=github" alt="GitHub Sponsors" /></a>
+<a href="https://github.com/techouse/patholog/stargazers"><img src="https://img.shields.io/github/stars/techouse/patholog" alt="GitHub Repo stars" /></a></p>
+<p><code>patholog</code> explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.</p>
+<h3 id="installation"><a class="doc-anchor" href="#installation">§</a>Installation</h3>
+<p>Install the latest GitHub release on Linux or macOS:</p>
+<div class="example-wrap"><pre class="language-sh"><code>curl -fsSL https://raw.githubusercontent.com/techouse/patholog/refs/heads/main/install.sh | sh</code></pre></div>
+<p>The installer downloads the matching release archive, verifies its SHA-256
+checksum, installs <code>patholog</code> to <code>~/.local/bin</code>, and installs bash, zsh, and fish
+completions. Set <code>PATHOLOG_INSTALL_DIR</code> to choose another install directory, set
+<code>PATHOLOG_VERSION</code> to install a specific release, set <code>PATHOLOG_LINUX_LIBC=musl</code>
+or <code>gnu</code> to override Linux libc detection, and set
+<code>PATHOLOG_INSTALL_COMPLETIONS=0</code> to skip completions.</p>
+<p>Install with Homebrew:</p>
+<div class="example-wrap"><pre class="language-sh"><code>brew install techouse/patholog/patholog</code></pre></div>
+<p>Or tap the repository first:</p>
+<div class="example-wrap"><pre class="language-sh"><code>brew tap techouse/patholog
+brew install patholog</code></pre></div>
+<p>Install from crates.io:</p>
+<div class="example-wrap"><pre class="language-sh"><code>cargo install patholog</code></pre></div>
+<p>Or download a release artifact from
+<a href="https://github.com/techouse/patholog/releases">GitHub Releases</a>. Linux releases
+include GNU/glibc and musl <code>.tar.gz</code> archives for x86_64 and ARM64, plus
+GNU/glibc <code>.deb</code> and <code>.rpm</code> packages for x86_64 and ARM64. Windows releases
+include a <code>.zip</code> archive for x86_64 MSVC. macOS releases include a signed and
+notarized universal <code>.zip</code> archive for Apple Silicon and Intel Macs. Archives
+include the <code>patholog</code> binary, shell completions, <code>README.md</code>, <code>LICENSE</code>, and
+<code>THIRD-PARTY-LICENSES.md</code>. Verify downloads with the release <code>SHA256SUMS.txt</code>
+file or the per-artifact <code>.sha256</code> sidecar.</p>
+<h4 id="shell-completions"><a class="doc-anchor" href="#shell-completions">§</a>Shell Completions</h4>
+<p>The <code>install.sh</code> installer installs bash, zsh, and fish completions by default.
+Set <code>PATHOLOG_INSTALL_COMPLETIONS=0</code> to skip completion installation.</p>
+<p>Install shell completions manually by writing the generated script to your
+shell’s completion directory.</p>
+<p>Bash:</p>
+<div class="example-wrap"><pre class="language-sh"><code>mkdir -p ~/.local/share/bash-completion/completions
+patholog completions bash &gt; ~/.local/share/bash-completion/completions/patholog</code></pre></div>
+<p>Zsh:</p>
+<div class="example-wrap"><pre class="language-sh"><code>mkdir -p ~/.zfunc
+patholog completions zsh &gt; ~/.zfunc/_patholog</code></pre></div>
+<p>Add this to <code>.zshrc</code> if <code>~/.zfunc</code> is not already in <code>fpath</code>:</p>
+<div class="example-wrap"><pre class="language-zsh"><code>fpath=(~/.zfunc $fpath)
+autoload -Uz compinit
+compinit</code></pre></div>
+<p>Fish:</p>
+<div class="example-wrap"><pre class="language-fish"><code>mkdir -p ~/.config/fish/completions
+patholog completions fish &gt; ~/.config/fish/completions/patholog.fish</code></pre></div>
+<p>PowerShell:</p>
+<div class="example-wrap"><pre class="language-powershell"><code>New-Item -ItemType Directory -Force (Split-Path $PROFILE) | Out-Null
+patholog completions pwsh | Add-Content $PROFILE</code></pre></div><h3 id="quick-examples"><a class="doc-anchor" href="#quick-examples">§</a>Quick Examples</h3><div class="example-wrap"><pre class="language-sh"><code>patholog doctor
+patholog health --json
+patholog doctor --command python
+patholog why python
+patholog why-not poetry
+patholog conflicts cargo
+patholog scan
+patholog clean --stdout
+patholog clean --stdout --drop /sw/bin
+patholog clean --export --var manpath --shell zsh
+patholog clean --export --shell zsh
+patholog apply --dry-run --shell zsh
+patholog apply --shell zsh --yes
+patholog config check --config patholog.toml
+patholog completions zsh</code></pre></div><h3 id="why-it-exists"><a class="doc-anchor" href="#why-it-exists">§</a>Why It Exists</h3>
+<p>PATH problems are usually invisible until the wrong tool runs. <code>patholog</code> is built for cases like:</p>
+<ul>
+<li><code>python</code>, <code>node</code>, or <code>cargo</code> resolving to an unexpected executable.</li>
+<li>duplicate PATH entries hiding the real search order.</li>
+<li>missing directories left behind by old installers.</li>
+<li>unreadable PATH entries or shadowed command candidates.</li>
+<li>Cargo, Homebrew, pyenv, nvm, or system directories appearing in surprising order.</li>
+<li>shell config drift between machines.</li>
+</ul>
+<p>The goal is to explain before changing anything.</p>
+<h3 id="command-surface"><a class="doc-anchor" href="#command-surface">§</a>Command Surface</h3><div class="example-wrap"><pre class="language-sh"><code>patholog print [--json] [--platform auto|posix|windows] [--var path|manpath]
+patholog doctor [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--fail-on=missing,duplicate,...] [--command &lt;command&gt;] [--config &lt;file|auto&gt;]
+patholog health [--json] [--platform auto|posix|windows] [--var path|manpath] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--config &lt;file|auto&gt;]
+patholog why &lt;command&gt; [--json] [--platform auto|posix|windows]
+patholog why-not &lt;command&gt; [--json] [--platform auto|posix|windows]
+patholog conflicts &lt;command&gt; [--json] [--platform auto|posix|windows]
+patholog scan [--json] [--platform auto|posix|windows] [--home &lt;dir&gt;]
+patholog clean --stdout [--platform auto|posix|windows] [--var path|manpath] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--config &lt;file|auto&gt;]
+patholog clean --export --shell zsh|bash|fish|pwsh [--platform auto|posix|windows] [--var path|manpath] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--config &lt;file|auto&gt;]
+patholog apply --dry-run --shell zsh|bash|fish|pwsh [--json] [--platform auto|posix|windows] [--home &lt;dir&gt;] [--profile &lt;file&gt;] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--config &lt;file|auto&gt;]
+patholog apply --shell zsh|bash|fish|pwsh --yes [--no-backup] [--json] [--platform auto|posix|windows] [--home &lt;dir&gt;] [--profile &lt;file&gt;] [--drop &lt;entry&gt;] [--preset homebrew|cargo|pyenv|fink] [--config &lt;file|auto&gt;]
+patholog config check --config &lt;file|auto&gt;
+patholog config print --config &lt;file|auto&gt; [--json]
+patholog completions zsh|bash|fish|pwsh</code></pre></div>
+<p><code>patholog</code> mutates files only for <code>apply --yes</code>. Other commands do not edit shell profiles, environment variables, or files.</p>
+<h3 id="read-only-diagnostics"><a class="doc-anchor" href="#read-only-diagnostics">§</a>Read-Only Diagnostics</h3>
+<p><code>doctor</code> reports duplicate, missing, non-directory, unreadable, empty, explicitly unwanted, and suspiciously ordered PATH entries. With <code>--command</code>, it also reports executable candidates shadowed by an earlier winner:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog doctor --command python
+patholog doctor --drop /sw/bin --fail-on=unwanted</code></pre></div>
+<p><code>health</code> summarizes those diagnostics as an advisory deterministic score, issue counts, worst severity, and the diagnostics used to compute the score:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog health --json
+patholog health --var manpath</code></pre></div>
+<p>Example JSON excerpt:</p>
+<div class="example-wrap"><pre class="language-json"><code>{
+  &quot;score&quot;: 85,
+  &quot;healthy&quot;: false,
+  &quot;worst_severity&quot;: &quot;error&quot;,
+  &quot;counts&quot;: {
+    &quot;missing&quot;: 1
+  }
+}</code></pre></div>
+<p>Use <code>doctor --fail-on</code> when you need a CI gate; <code>health</code> always exits <code>0</code> when the summary is calculated successfully.</p>
+<p><code>--var manpath</code> switches <code>print</code>, <code>doctor</code>, <code>health</code>, and <code>clean</code> to <code>MANPATH</code>. Command resolution and profile planning stay PATH-only. <code>clean --var manpath</code> preserves empty MANPATH components because common man implementations use them to include the system default manpath.</p>
+<p><code>scan</code> reads known shell startup profiles under the home directory and reports likely PATH mutation lines. It does not source or edit those files:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog scan
+patholog scan --home /tmp/example-home</code></pre></div><h3 id="output-modes"><a class="doc-anchor" href="#output-modes">§</a>Output Modes</h3>
+<p>Human output is the default. JSON output is available for <code>print</code>, <code>doctor</code>, <code>health</code>, <code>why</code>, <code>why-not</code>, <code>conflicts</code>, <code>scan</code>, and <code>apply</code>:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog doctor --json
+patholog health --json
+patholog why python --json
+patholog why-not poetry --json
+patholog scan --json</code></pre></div>
+<p><code>why-not</code> explains missing-command cases by combining exact PATH lookup, related executable hints, PATH health diagnostics, and safe advisory next checks. It is read-only and does not run package managers or edit shell configuration.</p>
+<p><code>clean --stdout</code> prints a raw PATH or MANPATH string suitable for review or manual export. <code>clean --export</code> prints a shell-ready assignment snippet for <code>zsh</code>, <code>bash</code>, <code>fish</code>, or <code>pwsh</code>:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog clean --export --shell zsh
+patholog clean --export --var manpath --shell zsh</code></pre></div>
+<p><code>completions</code> prints shell completion scripts to stdout:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog completions zsh</code></pre></div>
+<p><code>apply --dry-run</code> plans a shell profile edit without writing files. <code>apply --yes</code> writes the same managed block, creates backups for existing profiles by default, and never rewrites arbitrary PATH lines outside the patholog block:</p>
+<div class="example-wrap"><pre class="language-sh"><code>patholog apply --dry-run --shell zsh
+patholog apply --dry-run --shell zsh --json
+patholog apply --dry-run --shell zsh --drop /sw/bin
+patholog apply --shell zsh --yes
+patholog apply --shell zsh --yes --no-backup</code></pre></div>
+<p><code>--preset fink</code> marks <code>/sw/bin</code> and <code>/sw/sbin</code> as unwanted for PATH, and <code>/sw/share/man</code> as unwanted for MANPATH. <code>homebrew</code>, <code>cargo</code>, and <code>pyenv</code> presets enable ecosystem policy checks without automatically reordering entries.</p>
+<h3 id="config-files"><a class="doc-anchor" href="#config-files">§</a>Config Files</h3>
+<p><code>--config &lt;file&gt;</code> lets <code>doctor</code>, <code>health</code>, <code>clean</code>, and <code>apply</code> load declarative policy defaults. CLI flags append after config values:</p>
+<div class="example-wrap"><pre class="language-toml"><code>version = 1
+
+[path]
+drop = [&quot;/sw/bin&quot;]
+preset = [&quot;homebrew&quot;, &quot;cargo&quot;]
+fail_on = [&quot;duplicate&quot;, &quot;unwanted&quot;]
+
+[manpath]
+drop = [&quot;/sw/share/man&quot;]
+preset = [&quot;fink&quot;]
+fail_on = [&quot;duplicate&quot;]</code></pre></div>
+<p>Use <code>patholog config check --config patholog.toml</code> to validate a file, or <code>patholog config print --config patholog.toml --json</code> to inspect normalized policy. <code>--config auto</code> searches only the current working directory for <code>patholog.toml</code>, then <code>.patholog.toml</code>.</p>
+<p><code>health</code> uses config <code>drop</code> and <code>preset</code> policy for scoring, but <code>fail_on</code> remains specific to <code>doctor</code>.</p>
+<h3 id="exit-codes"><a class="doc-anchor" href="#exit-codes">§</a>Exit Codes</h3>
+<ul>
+<li><code>0</code>: success</li>
+<li><code>1</code>: usage or runtime error</li>
+<li><code>2</code>: <code>doctor --fail-on</code> matched selected diagnostics</li>
+<li><code>3</code>: command not found for <code>why</code>, <code>why-not</code>, or <code>conflicts</code></li>
+</ul>
+<h3 id="platform-model"><a class="doc-anchor" href="#platform-model">§</a>Platform Model</h3>
+<ul>
+<li><code>auto</code> uses host platform rules.</li>
+<li><code>posix</code> uses <code>:</code> separators and case-sensitive comparison keys.</li>
+<li><code>windows</code> uses <code>;</code> separators, case-insensitive comparison keys, and PATHEXT modeling.</li>
+</ul>
+<p>Windows command resolution differs from POSIX lookup because file extensions and <code>PATHEXT</code> affect which executable wins. <code>patholog --platform windows</code> models that behavior for tests and cross-platform inspection.</p>
+<p>PATH values are handled as UTF-8 strings to preserve v0.1 parity. Symlinks, inode identity, and canonical-file identity are not analyzed.</p>
+<h3 id="safety"><a class="doc-anchor" href="#safety">§</a>Safety</h3>
+<p>All commands are read-only except <code>apply --yes</code>, which writes only the patholog-managed block in the selected shell
+profile. When the selected target is <code>~/.zshrc</code>, <code>~/.bashrc</code>, <code>~/.profile</code>, or a PowerShell profile, <code>patholog</code> may
+create, append, or replace that managed block, but it does not rewrite arbitrary profile content outside the block or
+edit system environment configuration.</p>
+<p><code>clean --stdout</code>, <code>clean --export</code>, <code>apply --dry-run</code>, and <code>completions</code> only print generated text. Mutating <code>apply</code> requires <code>--yes</code> and backs up existing profiles unless <code>--no-backup</code> is passed.</p>
+<h3 id="development"><a class="doc-anchor" href="#development">§</a>Development</h3><div class="example-wrap"><pre class="language-sh"><code>make ci
+make install-smoke
+make v1-contract-check
+make pre-release</code></pre></div>
+<p>Use <code>make ci</code> for normal local checks, <code>make install-smoke</code> to test the packaged crate in a temporary install root,
+<code>make v1-contract-check</code> for the v1 contract audit, and <code>make pre-release</code> as the full gate before tagging a
+release.</p>
+<p>Golden parity fixtures are vendored in <code>tests/fixtures/golden</code>.</p>
+<h2 id="library-example"><a class="doc-anchor" href="#library-example">§</a>Library Example</h2>
+<p>The command-line interface is the primary product surface. The public Rust API
+is intentionally small and is mainly useful for tests, fuzzing, and embedding
+the CLI with an injected runtime context.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::path::PathBuf;
+
+<span class="kw">use </span>patholog::cli::{CommandContext, run};
+<span class="kw">use </span>patholog::model::ExitCode;
+
+<span class="kw">let </span>context = CommandContext {
+    path_value: <span class="string">"."</span>.to_owned(),
+    manpath_value: String::new(),
+    pathext: <span class="prelude-val">None</span>,
+    cwd: PathBuf::from(<span class="string">"."</span>),
+    home_dir: <span class="prelude-val">None</span>,
+    user_profile_dir: <span class="prelude-val">None</span>,
+};
+
+<span class="kw">let </span>result = run([<span class="string">"print"</span>, <span class="string">"--platform"</span>, <span class="string">"posix"</span>], context);
+
+<span class="macro">assert_eq!</span>(result.exit_code, ExitCode::Success);
+<span class="macro">assert_eq!</span>(result.stdout, <span class="string">"1  .\n"</span>);</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="cli/index.html" title="mod patholog::cli">cli</a></dt><dd>Command-line parsing and execution entry points.</dd><dt><a class="mod" href="model/index.html" title="mod patholog::model">model</a></dt><dd>Public data model types returned by analysis and resolution operations.</dd></dl></section></div></main></body></html>
