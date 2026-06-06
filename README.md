@@ -14,6 +14,8 @@ Diagnose and fix PATH problems across macOS, Linux, and Windows.
 
 `patholog` explains why a command resolves to a particular executable, shows competing matches, diagnoses common PATH problems, scans shell startup files read-only, prints cleaned PATH proposals, and applies tightly scoped shell profile repairs through a managed block.
 
+<img src="https://raw.githubusercontent.com/techouse/patholog/refs/heads/main/docs/assets/patholog-demo.gif" alt="patholog terminal demo" width="920">
+
 ## Why It Exists
 
 PATH problems are usually invisible until the wrong tool runs. `patholog` is built for cases like:
