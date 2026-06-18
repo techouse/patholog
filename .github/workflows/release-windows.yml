@@ -28,7 +28,7 @@ jobs:
       TARGET_TRIPLE: x86_64-pc-windows-msvc
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
