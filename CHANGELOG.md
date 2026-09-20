@@ -2,6 +2,17 @@
 
 All notable changes to patholog are documented here.
 
+## 1.0.1 - 2026-09-20
+
+- Added a required CI aggregation job to verify the outcome of dependent workflow jobs.
+- Added issue and pull request templates to improve contribution guidance.
+- Added Copilot project instructions for AI coding agents.
+- Expanded README badges and project status visibility.
+- Added a GitHub release installer script with smoke-test coverage and script linting.
+- Improved documentation coverage, including missing_docs warnings, README inclusion, expanded rationale, and quick examples.
+- Added a demo GIF and supporting script to showcase patholog functionality.
+- Updated project dependencies and pinned CI workflow dependencies, including newer actions/checkout and codecov/codecov-action releases.
+
 ## 1.0.0 - 2026-06-06
 
 - Released the frozen v1 CLI, JSON, exit-code, and config contract publicly.
